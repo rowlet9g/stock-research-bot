@@ -1,0 +1,5 @@
+name,ticker,yahoo_ticker,dart_corp_code,market,currency
+삼성전자,005930,005930.KS,,KOSPI,KRW
+SK하이닉스,000660,000660.KS,,KOSPI,KRW
+Apple,AAPL,AAPL,,NASDAQ,USD
+Microsoft,MSFT,MSFT,,NASDAQ,USD

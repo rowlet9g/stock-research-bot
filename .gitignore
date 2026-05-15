@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.streamlit/secrets.toml
+data/*.sqlite
+data/*.db
+data/raw/
+data/cache/
+dist/
+build/
+*.egg-info/
