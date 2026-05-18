@@ -5,6 +5,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.gocache/
 .streamlit/secrets.toml
 data/*.sqlite
 data/*.db
@@ -13,3 +14,7 @@ data/cache/
 dist/
 build/
 *.egg-info/
+*.test
+coverage.out
+/forgetmenot
+/forgetmenot.exe

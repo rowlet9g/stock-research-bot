@@ -15,7 +15,29 @@ DART 공시/재무 정보와 Yahoo Finance 시세 데이터를 결합해 투자 
 - 수익 보장형 추천
 - 비공식 증권사 로그인/스크래핑
 
-## 초기 실행
+## 현재 구현 상태
+
+초기 Python/Streamlit 프로토타입은 남겨두되, 현재 주 개발 방향은 Go 포트입니다.
+
+Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다.
+
+- 관심종목 CSV 로드
+- Yahoo Finance 가격 스냅샷 생성
+- 가격 신호 규칙 평가
+- OpenDART 최근 공시 수집
+- ChatGPT Plus에 붙여넣을 투자 브리핑 프롬프트 생성
+
+## Go 실행
+
+Go 1.22 이상이 필요합니다.
+
+```powershell
+go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자 -thesis "실적 턴어라운드 기대"
+```
+
+`OPENAI_API_KEY` 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰는 흐름은 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식으로 둡니다.
+
+## Python 프로토타입 실행
 
 ```powershell
 python -m venv .venv
@@ -44,4 +66,3 @@ AI 출력은 항상 아래처럼 분리합니다.
 - 사실: 가격, 공시 제목, 재무 수치처럼 데이터로 확인되는 내용
 - 해석: 수치와 이벤트가 의미할 수 있는 가능성
 - 확인 질문: 투자 가설이 아직 유효한지 검증하는 질문
-
