@@ -1,0 +1,3 @@
+source_name,ticker,yahoo_ticker,market,currency,source_url,verified_at
+예시전자보통주,123456,123456.KS,KOSPI,KRW,https://example.com/instruments/123456,2026-07-24
+EXAMPLE ETF,EXMP,EXMP,NASDAQ,USD,https://example.com/instruments/EXMP,2026-07-24

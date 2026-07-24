@@ -21,13 +21,15 @@ const (
 
 type Client struct {
 	baseURL    string
+	searchURL  string
 	httpClient *http.Client
 	now        func() time.Time
 }
 
 func NewClient() *Client {
 	return &Client{
-		baseURL: defaultBaseURL,
+		baseURL:   defaultBaseURL,
+		searchURL: defaultSearchURL,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},

@@ -10,6 +10,8 @@ __pycache__/
 .streamlit/secrets.toml
 data/*.sqlite
 data/*.db
+data/*.csv
+!data/*.example.csv
 data/raw/
 data/cache/
 dist/

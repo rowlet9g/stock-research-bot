@@ -42,6 +42,39 @@ func main() {
 }
 
 func run(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		switch args[0] {
+		case "db-init":
+			return runDBInit(args[1:], stdout, stderr)
+		case "watchlist-sync":
+			return runWatchlistSync(args[1:], stdout, stderr)
+		case "watchlist-list":
+			return runWatchlistList(args[1:], stdout, stderr)
+		case "watchlist-delete":
+			return runWatchlistDelete(args[1:], stdout, stderr)
+		case "trades-import":
+			return runTradesImport(args[1:], stdout, stderr)
+		case "mirae-import":
+			return runMiraeImport(args[1:], stdout, stderr)
+		case "position-set":
+			return runPositionSet(args[1:], stdout, stderr)
+		case "thesis-set":
+			return runThesisSet(args[1:], stdout, stderr)
+		case "portfolio-show":
+			return runPortfolioShow(args[1:], stdout, stderr)
+		case "help":
+			writeCommandHelp(stdout)
+			return 0
+		default:
+			fmt.Fprintf(stderr, "unknown command %q\n", args[0])
+			writeCommandHelp(stderr)
+			return 2
+		}
+	}
+	return runAnalyze(args, stdout, stderr)
+}
+
+func runAnalyze(args []string, stdout io.Writer, stderr io.Writer) int {
 	flags := flag.NewFlagSet("forgetmenot", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	watchlistPath := flags.String("watchlist", "data/watchlist.example.csv", "watchlist CSV path")

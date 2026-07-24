@@ -5,6 +5,7 @@ DART 공시/재무 정보와 Yahoo Finance 시세 데이터를 결합해 투자 
 ## 프로젝트 문서
 
 - [프로젝트 계획](docs/PROJECT_PLAN.md): 목표 아키텍처, 데이터 정책, 단계별 로드맵과 완료 기준
+- [거래 CSV 계약](docs/TRADE_CSV.md): 정규화 거래 형식, 중복 방지 규칙, 미래에셋 원본 매핑 상태
 - [저장소 작업 지침](AGENTS.md): 구현, 보안, 테스트, 검증 및 Git 규칙
 - [Go 포팅 현황](README_GO.md): 현재 Go CLI 범위와 실행 방법
 
@@ -35,6 +36,10 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 데이터 출처, 기준시각, 수집시각 기록
 - 관심종목 CSV 헤더와 행 검증
 - 사람용 text 출력과 프로그램용 JSON 출력
+- SQLite migration과 투자 기록 영구 저장
+- 관심종목, 포지션, 거래, 투자 가설 통합 조회
+- 중복 실행에 안전한 정규화 거래 CSV import
+- 미래에셋 거래내역 XLSX 원본 import와 종목 alias cache
 
 ## 개발 환경 준비
 
@@ -67,6 +72,48 @@ OpenDART 공시를 사용하려면 `.env.example`을 `.env`로 복사한 뒤
 `OPENDART_API_KEY`를 설정하고, 관심종목 CSV에 `dart_corp_code`를 입력합니다.
 
 `OPENAI_API_KEY` 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰는 흐름은 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식으로 둡니다.
+
+## SQLite와 투자 기록
+
+기본 데이터베이스는 `data/forgetmenot.db`입니다. 다음 순서로 관심종목과 투자
+기록을 저장할 수 있습니다.
+
+```powershell
+go run ./cmd/forgetmenot db-init
+go run ./cmd/forgetmenot watchlist-sync -watchlist data/watchlist.example.csv
+go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
+go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
+go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
+go run ./cmd/forgetmenot mirae-import -file "C:\path\거래내역.xlsx"
+go run ./cmd/forgetmenot portfolio-show -ticker AAPL -output json
+```
+
+`watchlist-sync`는 CSV 종목을 추가하거나 갱신합니다. 저장된 거래가 없는 종목은
+`watchlist-delete -ticker <ticker>`로 삭제할 수 있습니다.
+
+금액과 수량은 SQLite에 소수점 8자리 고정 정밀도 정수로 저장합니다. DB 파일,
+개인 거래 CSV, 계좌 원본 CSV는 Git에서 제외됩니다.
+
+`data/trades.normalized.example.csv`는 프로젝트가 정의한 중간 형식이며 미래에셋
+원본 내보내기 형식을 의미하지 않습니다.
+
+`mirae-import`는 미래에셋에서 내보낸 `거래내역` XLSX를 직접 읽습니다. 거래
+원장은 주식 입출고와 현금 입출금을 분리하므로 수량이 기록된 아래 네 거래종류만
+체결로 가져옵니다.
+
+- `주식매수입고`
+- `주식매도출고`
+- `해외주식매수입고`
+- `해외주식매도출고`
+
+단가는 거래금액 또는 외화거래금액을 수량으로 나눠 계산합니다. 체결시각은 만들지
+않고 날짜 정밀도로 저장하며, 원본에 없는 개별 거래세는 `taxes_known=false`로
+구분합니다.
+
+종목명 매핑은 저장된 종목, 검증된 alias cache, Yahoo 검색 순서로 해결합니다.
+개인 계좌 종목이 들어가는 기본 cache는
+`data/cache/mirae_instrument_aliases.csv`이며 Git에서 제외됩니다. 공개 형식은
+`data/mirae_instrument_aliases.example.csv`를 참고합니다.
 
 ### 데이터 상태
 

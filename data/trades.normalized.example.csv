@@ -1,0 +1,3 @@
+external_id,trade_date,ticker,action,quantity,price,fees,taxes,currency
+DEMO-005930-20260701-01,2026-07-01,005930,BUY,10,60000,100,0,KRW
+DEMO-AAPL-20260702-01,2026-07-02,AAPL,BUY,2,210.50,0.25,0,USD

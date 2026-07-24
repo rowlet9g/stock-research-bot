@@ -124,7 +124,7 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 | --- | --- | --- |
 | 단계 0 | 완료 | 2026-07-24 기준선 검증 완료 |
 | 단계 1 | 완료 | 2026-07-24 데이터 모델과 수집 경계 안정화 |
-| 단계 2 | 다음 | SQLite와 투자 기록 |
+| 단계 2 | 검증 대기 | 저장 계층 구현 완료, 미래에셋 원본 CSV 샘플 필요 |
 | 단계 3~8 | 대기 | 앞 단계 완료 기준 충족 후 순서대로 진행 |
 
 ### 단계 0. 기준선 고정
@@ -192,7 +192,7 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 
 - SQLite 스키마와 migration 체계를 만든다.
 - 관심종목 CRUD를 구현한다.
-- 미래에셋 CSV 형식 탐색 및 import mapping을 구현한다.
+- 미래에셋 거래내역 XLSX 형식 탐색 및 import mapping을 구현한다.
 - Position과 Trade를 분리해 저장한다.
 - Thesis, 무효화 조건, 예상 보유기간, 확인 지표를 저장한다.
 - 중복 CSV import를 막는 idempotency 키를 설계한다.
@@ -203,6 +203,24 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - 동일 거래내역을 두 번 가져와도 중복 저장되지 않는다.
 - 한 종목의 보유내역, 거래내역, 투자 가설을 함께 조회할 수 있다.
 - 비밀정보와 계좌 원본 파일이 Git에 포함되지 않는다.
+
+구현 기록:
+
+- CGo가 필요 없는 `modernc.org/sqlite v1.36.1`을 Go 1.22 호환 버전으로 고정
+- checksum 검증을 포함한 embedded migration 체계 추가
+- 관심종목 upsert/list/delete repository 추가
+- Position, Trade, Thesis 분리 저장과 포트폴리오 통합 조회 추가
+- 금액과 수량을 소수점 8자리 고정 정밀도 정수로 저장
+- 파일 hash와 거래 `external_id` 기반 idempotency 추가
+- 정규화 거래 CSV import와 transaction rollback 추가
+- DB 재시작, 반복 import, rollback, CLI 전체 흐름 통합 테스트 추가
+- DB 및 개인 CSV를 Git 제외 대상으로 추가
+- 미래에셋 거래내역 XLSX의 실제 헤더와 132개 원장 행 구조 검증
+- 입출고/입출금 이중 원장 중 4개 체결 유형만 선택하는 adapter 추가
+- 거래금액과 수량 기반 단가 계산, 날짜 정밀도와 세금 미제공 상태 저장
+- 원본 거래번호를 대체하는 결정론적 SHA-256 거래 식별자 추가
+- 검증된 로컬 종목 alias cache와 Yahoo 검색 fallback 추가
+- 합성 XLSX fixture 기반 adapter 및 CLI 반복 import 테스트 추가
 
 ### 단계 3. 공식 데이터 공급자 확장
 
@@ -347,11 +365,9 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 
 ## 10. 다음 작업
 
-단계 0과 단계 1은 완료했다. 다음 작업은 단계 2다.
+단계 2의 SQLite 저장과 미래에셋 거래내역 XLSX import를 완료했다.
 
-1. SQLite driver와 migration 방식을 결정한다.
-2. 관심종목, 보유내역, 거래, 투자 가설 스키마를 설계한다.
-3. repository 계층과 transaction 경계를 구현한다.
-4. 미래에셋 CSV 샘플의 실제 열 구성을 확인한다.
-5. 중복 import를 막는 idempotency 키를 정의한다.
-6. 저장, 재실행 후 조회, 중복 import를 통합 테스트로 검증한다.
+1. 단계 3의 OpenDART 고유번호 전체 파일 동기화를 구현한다.
+2. 국내 종목은 DART와 KRX 식별자를 연결한다.
+3. 미국 종목은 SEC ticker와 CIK mapping을 추가한다.
+4. 현재 Yahoo 종목 검색 fallback의 결과를 공식 식별자로 교차 검증한다.

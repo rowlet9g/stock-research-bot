@@ -58,3 +58,60 @@ type TradeJournalEntry struct {
 	InvalidationCondition string    `json:"invalidation_condition"`
 	ExpectedHoldingPeriod string    `json:"expected_holding_period"`
 }
+
+type Instrument struct {
+	ID           int64     `json:"id"`
+	Name         string    `json:"name"`
+	Ticker       string    `json:"ticker"`
+	YahooTicker  string    `json:"yahoo_ticker"`
+	DARTCorpCode string    `json:"dart_corp_code,omitempty"`
+	Market       string    `json:"market"`
+	Currency     string    `json:"currency"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type Trade struct {
+	ID             int64     `json:"id"`
+	InstrumentID   int64     `json:"instrument_id"`
+	ExternalID     string    `json:"external_id,omitempty"`
+	TradeDate      time.Time `json:"trade_date"`
+	Action         string    `json:"action"`
+	QuantityUnits  int64     `json:"quantity_units"`
+	PriceUnits     int64     `json:"price_units"`
+	FeesUnits      int64     `json:"fees_units"`
+	TaxesUnits     int64     `json:"taxes_units"`
+	PriceSource    string    `json:"price_source"`
+	TaxesKnown     bool      `json:"taxes_known"`
+	TimePrecision  string    `json:"time_precision"`
+	Currency       string    `json:"currency"`
+	Source         string    `json:"source"`
+	IdempotencyKey string    `json:"idempotency_key"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type Position struct {
+	InstrumentID     int64     `json:"instrument_id"`
+	QuantityUnits    int64     `json:"quantity_units"`
+	AverageCostUnits int64     `json:"average_cost_units"`
+	Currency         string    `json:"currency"`
+	AsOf             time.Time `json:"as_of"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type Thesis struct {
+	InstrumentID          int64     `json:"instrument_id"`
+	Summary               string    `json:"summary"`
+	InvalidationCondition string    `json:"invalidation_condition"`
+	ExpectedHoldingPeriod string    `json:"expected_holding_period"`
+	CheckMetrics          []string  `json:"check_metrics"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
+}
+
+type PortfolioRecord struct {
+	Instrument Instrument `json:"instrument"`
+	Position   *Position  `json:"position,omitempty"`
+	Trades     []Trade    `json:"trades"`
+	Thesis     *Thesis    `json:"thesis,omitempty"`
+}

@@ -16,6 +16,12 @@
 - 데이터 상태와 출처 메타데이터 기록
 - 관심종목 CSV 검증
 - text/JSON 출력
+- SQLite migration과 repository
+- 관심종목, 포지션, 거래, 투자 가설 저장
+- 정규화 거래 CSV의 중복 없는 import
+- 미래에셋 거래내역 XLSX 원본 import
+- 거래 단가 파생, 데이터 품질 상태, 결정론적 거래 ID
+- 검증된 종목 alias cache와 Yahoo 종목 검색
 
 OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
 
@@ -29,6 +35,9 @@ go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name Apple -outp
 ```
 
 DART 공시까지 보려면 `.env` 또는 환경변수에 `OPENDART_API_KEY`를 설정하고, 관심종목 CSV의 `dart_corp_code`를 채워야 합니다.
+
+SQLite 및 투자 기록 명령은 루트 `README.md`와 `docs/TRADE_CSV.md`를
+참고합니다.
 
 ## 테스트
 
