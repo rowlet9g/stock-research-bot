@@ -8,9 +8,9 @@ import (
 )
 
 type Signal struct {
-	Level  string
-	Title  string
-	Detail string
+	Level  string `json:"level"`
+	Title  string `json:"title"`
+	Detail string `json:"detail"`
 }
 
 func EvaluatePriceSnapshot(snapshot models.PriceSnapshot) []Signal {

@@ -123,8 +123,9 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 | 단계 | 상태 | 비고 |
 | --- | --- | --- |
 | 단계 0 | 완료 | 2026-07-24 기준선 검증 완료 |
-| 단계 1 | 다음 | Go 데이터 기반 안정화 |
-| 단계 2~8 | 대기 | 앞 단계 완료 기준 충족 후 순서대로 진행 |
+| 단계 1 | 완료 | 2026-07-24 데이터 모델과 수집 경계 안정화 |
+| 단계 2 | 다음 | SQLite와 투자 기록 |
+| 단계 3~8 | 대기 | 앞 단계 완료 기준 충족 후 순서대로 진행 |
 
 ### 단계 0. 기준선 고정
 
@@ -172,6 +173,16 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - 모든 출력에 데이터 기준시각과 출처가 표시된다.
 - 외부 네트워크 없이 단위 테스트가 통과한다.
 - 실패 원인이 사용자 입력, 공급자 오류, 데이터 없음으로 구분된다.
+
+구현 기록:
+
+- `PriceBar`, `DataStatus`, `SourceMetadata` 도메인 모델 추가
+- Yahoo timestamp 기준 종가/거래량 정렬 및 부분 데이터 경고 추가
+- Yahoo와 OpenDART의 독립 timeout과 공통 공급자 오류 분류 추가
+- OpenDART 결과에서 API 키를 제외한 안전한 출처 URL 기록
+- 관심종목 CSV 필수 헤더, 필수 값, 중복 ticker 검증 추가
+- CLI `-output text|json` 형식과 구조화된 `issues` 추가
+- Yahoo, OpenDART, watchlist, prompt, CLI fixture/단위 테스트 추가
 
 ### 단계 2. SQLite와 투자 기록
 
@@ -336,11 +347,11 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 
 ## 10. 다음 작업
 
-단계 0은 완료했다. 다음 작업은 단계 1이다.
+단계 0과 단계 1은 완료했다. 다음 작업은 단계 2다.
 
-1. `PriceBar`와 데이터 출처 메타데이터 모델을 설계한다.
-2. Yahoo 날짜/거래량 정렬 문제를 fixture 테스트로 재현한다.
-3. 데이터 공급자별 독립 timeout과 오류 형식을 만든다.
-4. CSV 필수 헤더와 행 검증을 추가한다.
-5. CLI JSON 출력 형식을 확정한다.
-6. MVP A 완료 후 SQLite 작업으로 이동한다.
+1. SQLite driver와 migration 방식을 결정한다.
+2. 관심종목, 보유내역, 거래, 투자 가설 스키마를 설계한다.
+3. repository 계층과 transaction 경계를 구현한다.
+4. 미래에셋 CSV 샘플의 실제 열 구성을 확인한다.
+5. 중복 import를 막는 idempotency 키를 정의한다.
+6. 저장, 재실행 후 조회, 중복 import를 통합 테스트로 검증한다.

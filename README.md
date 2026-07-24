@@ -32,6 +32,9 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 가격 신호 규칙 평가
 - OpenDART 최근 공시 수집
 - ChatGPT Plus에 붙여넣을 투자 브리핑 프롬프트 생성
+- 데이터 출처, 기준시각, 수집시각 기록
+- 관심종목 CSV 헤더와 행 검증
+- 사람용 text 출력과 프로그램용 JSON 출력
 
 ## 개발 환경 준비
 
@@ -53,7 +56,8 @@ Codex처럼 사용자 프로필의 Go 캐시 쓰기가 제한된 환경에서도
 ## Go 실행
 
 ```powershell
-go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자 -thesis "실적 턴어라운드 기대"
+go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자 -thesis "실적 턴어라운드 기대" -output text
+go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name Apple -output json
 ```
 
 이 명령은 Yahoo Finance에 실제 네트워크 요청을 보냅니다. Yahoo 응답이 실패해도
@@ -63,6 +67,21 @@ OpenDART 공시를 사용하려면 `.env.example`을 `.env`로 복사한 뒤
 `OPENDART_API_KEY`를 설정하고, 관심종목 CSV에 `dart_corp_code`를 입력합니다.
 
 `OPENAI_API_KEY` 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰는 흐름은 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식으로 둡니다.
+
+### 데이터 상태
+
+가격과 공시 결과의 `status`는 다음 값을 사용합니다.
+
+| 상태 | 의미 |
+| --- | --- |
+| `available` | 필요한 데이터가 정상적으로 수집됨 |
+| `partial` | 일부 값이 없거나 응답 일부가 유효하지 않음 |
+| `empty` | 요청은 성공했지만 조회된 데이터가 없음 |
+| `unavailable` | 네트워크 또는 공급자 오류로 수집하지 못함 |
+| `not_requested` | API 키나 기업코드가 없어 요청하지 않음 |
+
+JSON 출력의 `issues`에는 `invalid_request`, `unavailable`, `bad_response`,
+`no_data`, `partial_data`, `not_requested`와 같은 원인 분류가 포함됩니다.
 
 ## Python 레거시 프로토타입
 
@@ -88,6 +107,10 @@ Apple,AAPL,AAPL,,NASDAQ,USD
 ```
 
 `dart_corp_code`는 OpenDART의 고유번호입니다. 정확한 매핑 테이블은 별도 수집 기능으로 추가하는 것이 안전합니다.
+
+CSV는 `name`, `ticker`, `yahoo_ticker`, `dart_corp_code`, `market`,
+`currency` 헤더를 모두 포함해야 합니다. `dart_corp_code` 값은 비워둘 수 있지만
+나머지 값은 각 행에 필수입니다.
 
 ## 추천 원칙
 

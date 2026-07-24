@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -12,74 +13,147 @@ import (
 	"github.com/rowlet9g/stock-research-bot/internal/analysis"
 	"github.com/rowlet9g/stock-research-bot/internal/config"
 	"github.com/rowlet9g/stock-research-bot/internal/dart"
+	"github.com/rowlet9g/stock-research-bot/internal/models"
 	"github.com/rowlet9g/stock-research-bot/internal/prompt"
+	"github.com/rowlet9g/stock-research-bot/internal/provider"
 	"github.com/rowlet9g/stock-research-bot/internal/watchlist"
 	"github.com/rowlet9g/stock-research-bot/internal/yahoo"
 )
 
+const providerRequestTimeout = 12 * time.Second
+
+type outputIssue struct {
+	Scope   string `json:"scope"`
+	Kind    string `json:"kind"`
+	Message string `json:"message"`
+}
+
+type cliResult struct {
+	Selected    models.WatchlistItem  `json:"selected"`
+	Price       models.PriceSnapshot  `json:"price"`
+	Signals     []analysis.Signal     `json:"signals"`
+	Disclosures dart.DisclosureResult `json:"disclosures"`
+	Issues      []outputIssue         `json:"issues"`
+	Prompt      string                `json:"prompt"`
+}
+
 func main() {
-	watchlistPath := flag.String("watchlist", "data/watchlist.example.csv", "watchlist CSV path")
-	name := flag.String("name", "", "stock name to analyze")
-	ticker := flag.String("ticker", "", "ticker or Yahoo ticker to analyze")
-	thesis := flag.String("thesis", "", "user investment thesis")
-	days := flag.Int("days", 30, "DART disclosure lookback days")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func run(args []string, stdout io.Writer, stderr io.Writer) int {
+	flags := flag.NewFlagSet("forgetmenot", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	watchlistPath := flags.String("watchlist", "data/watchlist.example.csv", "watchlist CSV path")
+	name := flags.String("name", "", "stock name to analyze")
+	ticker := flags.String("ticker", "", "ticker or Yahoo ticker to analyze")
+	thesis := flags.String("thesis", "", "user investment thesis")
+	days := flags.Int("days", 30, "DART disclosure lookback days")
+	outputFormat := flags.String("output", "text", "output format: text or json")
+	if err := flags.Parse(args); err != nil {
+		return 2
+	}
+
+	*outputFormat = strings.ToLower(strings.TrimSpace(*outputFormat))
+	if *outputFormat != "text" && *outputFormat != "json" {
+		return writeFailure(*outputFormat, stdout, stderr, outputIssue{
+			Scope:   "input",
+			Kind:    "invalid_input",
+			Message: `output must be "text" or "json"`,
+		})
+	}
+	if *days <= 0 {
+		return writeFailure(*outputFormat, stdout, stderr, outputIssue{
+			Scope:   "input",
+			Kind:    "invalid_input",
+			Message: "days must be greater than zero",
+		})
+	}
 
 	settings := config.Load(".env")
-
 	items, err := watchlist.Load(*watchlistPath)
 	if err != nil {
-		log.Fatalf("load watchlist: %v", err)
+		return writeFailure(*outputFormat, stdout, stderr, outputIssue{
+			Scope:   "watchlist",
+			Kind:    "invalid_input",
+			Message: err.Error(),
+		})
 	}
-	if len(items) == 0 {
-		log.Fatalf("watchlist is empty: %s", *watchlistPath)
-	}
-
 	selected, err := watchlist.Select(items, *name, *ticker)
 	if err != nil {
-		log.Fatal(err)
+		return writeFailure(*outputFormat, stdout, stderr, outputIssue{
+			Scope:   "watchlist",
+			Kind:    "invalid_input",
+			Message: err.Error(),
+		})
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+	issues := []outputIssue{}
 
-	snapshot, err := yahoo.BuildPriceSnapshot(ctx, selected.YahooTicker)
-	if err != nil {
-		log.Printf("Yahoo price fetch failed: %v", err)
-		snapshot = yahoo.EmptyPriceSnapshot(selected.YahooTicker)
+	priceContext, cancelPrice := context.WithTimeout(context.Background(), providerRequestTimeout)
+	snapshot, priceErr := yahoo.BuildPriceSnapshot(priceContext, selected.YahooTicker)
+	cancelPrice()
+	if priceErr != nil {
+		issues = append(issues, outputIssue{
+			Scope:   "price",
+			Kind:    string(provider.KindOf(priceErr)),
+			Message: priceErr.Error(),
+		})
+	} else if snapshot.Status == models.DataStatusEmpty {
+		issues = append(issues, outputIssue{
+			Scope:   "price",
+			Kind:    string(provider.ErrorKindNoData),
+			Message: "price provider returned no data",
+		})
+	}
+	for _, warning := range snapshot.Warnings {
+		issues = append(issues, outputIssue{
+			Scope:   "price",
+			Kind:    "partial_data",
+			Message: warning,
+		})
 	}
 	signals := analysis.EvaluatePriceSnapshot(snapshot)
+	if signals == nil {
+		signals = []analysis.Signal{}
+	}
 
-	disclosures := []dart.Disclosure{}
+	disclosures := dart.NotRequestedResult()
 	if settings.OpenDARTAPIKey != "" && strings.TrimSpace(selected.DARTCorpCode) != "" {
-		client := dart.NewClient(settings.OpenDARTAPIKey)
-		disclosures, err = client.RecentDisclosures(ctx, selected.DARTCorpCode, *days, 20)
+		dartContext, cancelDART := context.WithTimeout(context.Background(), providerRequestTimeout)
+		disclosures, err = dart.NewClient(settings.OpenDARTAPIKey).RecentDisclosures(
+			dartContext,
+			selected.DARTCorpCode,
+			*days,
+			20,
+		)
+		cancelDART()
 		if err != nil {
-			log.Printf("DART disclosure fetch failed: %v", err)
+			issues = append(issues, outputIssue{
+				Scope:   "disclosures",
+				Kind:    string(provider.KindOf(err)),
+				Message: err.Error(),
+			})
+		} else if disclosures.Status == models.DataStatusEmpty {
+			issues = append(issues, outputIssue{
+				Scope:   "disclosures",
+				Kind:    string(provider.ErrorKindNoData),
+				Message: "OpenDART returned no disclosures",
+			})
 		}
+	} else {
+		issues = append(issues, outputIssue{
+			Scope:   "disclosures",
+			Kind:    "not_requested",
+			Message: "OpenDART API key or corporation code is not configured",
+		})
 	}
-
-	fmt.Printf("Selected: %s (%s / %s)\n", selected.Name, selected.Ticker, selected.YahooTicker)
-	fmt.Printf("Last price: %s\n", formatFloat(snapshot.LastPrice))
-	fmt.Printf("1D change: %s%%\n", formatFloat(snapshot.ChangePct1D))
-	fmt.Printf("MA20: %s\n", formatFloat(snapshot.MA20))
-	fmt.Printf("MA60: %s\n", formatFloat(snapshot.MA60))
-	fmt.Printf("Volume: %s\n\n", formatInt(snapshot.Volume))
-
-	fmt.Println("Signals:")
-	if len(signals) == 0 {
-		fmt.Println("- 특이 신호 없음")
-	}
-	for _, signal := range signals {
-		fmt.Printf("- [%s] %s: %s\n", signal.Level, signal.Title, signal.Detail)
-	}
-
-	fmt.Println("\nRecent DART disclosures:")
-	if len(disclosures) == 0 {
-		fmt.Println("- 제공된 공시 없음")
-	}
-	for _, item := range disclosures {
-		fmt.Printf("- %s %s: %s (%s)\n", item.ReceiptDate, item.CorpName, item.ReportName, item.ReceiptNo)
+	for _, warning := range disclosures.Warnings {
+		issues = append(issues, outputIssue{
+			Scope:   "disclosures",
+			Kind:    "partial_data",
+			Message: warning,
+		})
 	}
 
 	briefPrompt := prompt.BuildStockBriefPrompt(prompt.StockBriefInput{
@@ -89,9 +163,109 @@ func main() {
 		Disclosures: disclosures,
 		UserThesis:  *thesis,
 	})
+	result := cliResult{
+		Selected:    selected,
+		Price:       snapshot,
+		Signals:     signals,
+		Disclosures: disclosures,
+		Issues:      issues,
+		Prompt:      briefPrompt,
+	}
 
-	fmt.Println("\n--- ChatGPT Prompt ---")
-	fmt.Println(briefPrompt)
+	if *outputFormat == "json" {
+		if err := writeJSON(stdout, result); err != nil {
+			fmt.Fprintf(stderr, "write JSON output: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	writeText(stdout, result)
+	return 0
+}
+
+func writeFailure(outputFormat string, stdout io.Writer, stderr io.Writer, issue outputIssue) int {
+	if outputFormat == "json" {
+		if err := writeJSON(stdout, struct {
+			Error outputIssue `json:"error"`
+		}{Error: issue}); err != nil {
+			fmt.Fprintf(stderr, "write JSON error: %v\n", err)
+		}
+	} else {
+		fmt.Fprintln(stderr, issue.Message)
+	}
+	return 2
+}
+
+func writeJSON(output io.Writer, value any) error {
+	encoder := json.NewEncoder(output)
+	encoder.SetIndent("", "  ")
+	encoder.SetEscapeHTML(false)
+	return encoder.Encode(value)
+}
+
+func writeText(output io.Writer, result cliResult) {
+	fmt.Fprintf(output, "Selected: %s (%s / %s)\n", result.Selected.Name, result.Selected.Ticker, result.Selected.YahooTicker)
+	fmt.Fprintf(output, "Price status: %s\n", result.Price.Status)
+	fmt.Fprintf(output, "Currency: %s\n", valueOrNA(result.Price.Currency))
+	fmt.Fprintf(output, "Observed at: %s\n", formatObservedAt(result.Price.Source.ObservedAt))
+	fmt.Fprintf(output, "Fetched at: %s\n", formatFetchedAt(result.Price.Source.FetchedAt))
+	fmt.Fprintf(output, "Source: %s\n", valueOrNA(result.Price.Source.SourceURL))
+	fmt.Fprintf(output, "Last price: %s\n", formatFloat(result.Price.LastPrice))
+	fmt.Fprintf(output, "1D change: %s%%\n", formatFloat(result.Price.ChangePct1D))
+	fmt.Fprintf(output, "MA20: %s\n", formatFloat(result.Price.MA20))
+	fmt.Fprintf(output, "MA60: %s\n", formatFloat(result.Price.MA60))
+	fmt.Fprintf(output, "Volume: %s\n\n", formatInt(result.Price.Volume))
+
+	fmt.Fprintln(output, "Signals:")
+	if len(result.Signals) == 0 {
+		fmt.Fprintln(output, "- 특이 신호 없음")
+	}
+	for _, signal := range result.Signals {
+		fmt.Fprintf(output, "- [%s] %s: %s\n", signal.Level, signal.Title, signal.Detail)
+	}
+
+	fmt.Fprintln(output, "\nRecent DART disclosures:")
+	fmt.Fprintf(output, "Status: %s\n", result.Disclosures.Status)
+	fmt.Fprintf(output, "Observed at: %s\n", formatObservedAt(result.Disclosures.Source.ObservedAt))
+	fmt.Fprintf(output, "Fetched at: %s\n", formatFetchedAt(result.Disclosures.Source.FetchedAt))
+	fmt.Fprintf(output, "Source: %s\n", valueOrNA(result.Disclosures.Source.SourceURL))
+	if len(result.Disclosures.Disclosures) == 0 {
+		fmt.Fprintln(output, "- 제공된 공시 없음")
+	}
+	for _, item := range result.Disclosures.Disclosures {
+		fmt.Fprintf(output, "- %s %s: %s (%s)\n", item.ReceiptDate, item.CorpName, item.ReportName, item.ReceiptNo)
+	}
+
+	if len(result.Issues) > 0 {
+		fmt.Fprintln(output, "\nData issues:")
+		for _, issue := range result.Issues {
+			fmt.Fprintf(output, "- [%s/%s] %s\n", issue.Scope, issue.Kind, issue.Message)
+		}
+	}
+
+	fmt.Fprintln(output, "\n--- ChatGPT Prompt ---")
+	fmt.Fprintln(output, result.Prompt)
+}
+
+func formatObservedAt(value *time.Time) string {
+	if value == nil {
+		return "N/A"
+	}
+	return value.UTC().Format(time.RFC3339)
+}
+
+func formatFetchedAt(value time.Time) string {
+	if value.IsZero() {
+		return "N/A"
+	}
+	return value.UTC().Format(time.RFC3339)
+}
+
+func valueOrNA(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "N/A"
+	}
+	return value
 }
 
 func formatFloat(value *float64) string {
@@ -106,9 +280,4 @@ func formatInt(value *int64) string {
 		return "N/A"
 	}
 	return fmt.Sprintf("%d", *value)
-}
-
-func init() {
-	log.SetOutput(os.Stderr)
-	log.SetFlags(0)
 }

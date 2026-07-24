@@ -12,6 +12,10 @@
 - 가격 신호 규칙 평가
 - OpenDART 최근 공시 수집
 - ChatGPT Plus에 붙여넣을 브리핑 프롬프트 생성
+- 가격 bar의 날짜와 거래량 정렬
+- 데이터 상태와 출처 메타데이터 기록
+- 관심종목 CSV 검증
+- text/JSON 출력
 
 OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
 
@@ -20,7 +24,8 @@ OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요
 Go 1.22 이상이 필요합니다.
 
 ```powershell
-go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자 -thesis "실적 턴어라운드 기대"
+go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자 -thesis "실적 턴어라운드 기대" -output text
+go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name Apple -output json
 ```
 
 DART 공시까지 보려면 `.env` 또는 환경변수에 `OPENDART_API_KEY`를 설정하고, 관심종목 CSV의 `dart_corp_code`를 채워야 합니다.
@@ -34,3 +39,6 @@ go build ./...
 go test ./...
 go vet ./...
 ```
+
+Yahoo와 OpenDART 파서는 `internal/*/testdata` fixture를 사용해 실제 네트워크 없이
+검증합니다.

@@ -1,0 +1,33 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "USD"
+        },
+        "timestamp": [
+          1704067200,
+          1704153600,
+          1704240000
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "close": [
+                100.0,
+                101.0,
+                null
+              ],
+              "volume": [
+                1000,
+                2000,
+                3000
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}
