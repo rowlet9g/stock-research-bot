@@ -1,6 +1,8 @@
 # ForgetMeNot Go Port
 
 이 문서는 Python MVP를 Go로 옮기는 초기 포팅 상태를 설명합니다.
+현재 개발 및 검증 절차는 루트 `README.md`, 이후 작업 순서는
+`docs/PROJECT_PLAN.md`를 기준으로 합니다.
 
 ## 현재 범위
 
@@ -26,6 +28,9 @@ DART 공시까지 보려면 `.env` 또는 환경변수에 `OPENDART_API_KEY`를 
 ## 테스트
 
 ```powershell
+$env:GOCACHE = "$PWD\.gocache"
+$env:GOMODCACHE = "$PWD\.gomodcache"
+go build ./...
 go test ./...
+go vet ./...
 ```
-

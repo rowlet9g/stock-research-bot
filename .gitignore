@@ -6,6 +6,7 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .gocache/
+.gomodcache/
 .streamlit/secrets.toml
 data/*.sqlite
 data/*.db
