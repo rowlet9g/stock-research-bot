@@ -8,6 +8,7 @@ import (
 
 type Settings struct {
 	OpenDARTAPIKey string
+	KRXAPIKey      string
 	OpenAIAPIKey   string
 	OpenAIModel    string
 }
@@ -16,6 +17,7 @@ func Load(envPath string) Settings {
 	loadDotEnv(envPath)
 	return Settings{
 		OpenDARTAPIKey: os.Getenv("OPENDART_API_KEY"),
+		KRXAPIKey:      os.Getenv("KRX_API_KEY"),
 		OpenAIAPIKey:   os.Getenv("OPENAI_API_KEY"),
 		OpenAIModel:    os.Getenv("OPENAI_MODEL"),
 	}

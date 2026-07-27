@@ -60,6 +60,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runMiraeImport(args[1:], stdout, stderr)
 		case "dart-corp-sync":
 			return runDARTCorporationSync(args[1:], stdout, stderr)
+		case "krx-instrument-sync":
+			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":
 			return runPositionSet(args[1:], stdout, stderr)
 		case "thesis-set":

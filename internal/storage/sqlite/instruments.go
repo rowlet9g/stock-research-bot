@@ -99,7 +99,19 @@ func (s *Store) SyncInstruments(ctx context.Context, items []models.WatchlistIte
 
 func (s *Store) Instrument(ctx context.Context, ticker string) (models.Instrument, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, name, ticker, yahoo_ticker, dart_corp_code, market, currency, created_at, updated_at
+		SELECT
+			id,
+			name,
+			ticker,
+			yahoo_ticker,
+			dart_corp_code,
+			krx_standard_code,
+			instrument_type,
+			krx_verified_at,
+			market,
+			currency,
+			created_at,
+			updated_at
 		FROM instruments
 		WHERE ticker = ? COLLATE NOCASE OR yahoo_ticker = ? COLLATE NOCASE
 		LIMIT 1
@@ -117,7 +129,19 @@ func (s *Store) Instrument(ctx context.Context, ticker string) (models.Instrumen
 
 func (s *Store) ListInstruments(ctx context.Context) ([]models.Instrument, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, ticker, yahoo_ticker, dart_corp_code, market, currency, created_at, updated_at
+		SELECT
+			id,
+			name,
+			ticker,
+			yahoo_ticker,
+			dart_corp_code,
+			krx_standard_code,
+			instrument_type,
+			krx_verified_at,
+			market,
+			currency,
+			created_at,
+			updated_at
 		FROM instruments
 		ORDER BY name COLLATE NOCASE, ticker COLLATE NOCASE
 	`)
@@ -163,6 +187,7 @@ type scanner interface {
 
 func scanInstrument(row scanner) (models.Instrument, error) {
 	var instrument models.Instrument
+	var krxVerifiedAt string
 	var createdAt string
 	var updatedAt string
 	if err := row.Scan(
@@ -171,6 +196,9 @@ func scanInstrument(row scanner) (models.Instrument, error) {
 		&instrument.Ticker,
 		&instrument.YahooTicker,
 		&instrument.DARTCorpCode,
+		&instrument.KRXStandardCode,
+		&instrument.InstrumentType,
+		&krxVerifiedAt,
 		&instrument.Market,
 		&instrument.Currency,
 		&createdAt,
@@ -180,6 +208,13 @@ func scanInstrument(row scanner) (models.Instrument, error) {
 	}
 
 	var err error
+	if krxVerifiedAt != "" {
+		verifiedAt, err := parseTime(krxVerifiedAt)
+		if err != nil {
+			return models.Instrument{}, fmt.Errorf("parse instrument krx_verified_at: %w", err)
+		}
+		instrument.KRXVerifiedAt = &verifiedAt
+	}
 	instrument.CreatedAt, err = parseTime(createdAt)
 	if err != nil {
 		return models.Instrument{}, fmt.Errorf("parse instrument created_at: %w", err)

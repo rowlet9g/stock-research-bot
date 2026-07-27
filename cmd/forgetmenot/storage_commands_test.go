@@ -4,13 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/rowlet9g/stock-research-bot/internal/dart"
+	"github.com/rowlet9g/stock-research-bot/internal/krx"
 	"github.com/rowlet9g/stock-research-bot/internal/models"
+	"github.com/rowlet9g/stock-research-bot/internal/provider"
+	sqlitestore "github.com/rowlet9g/stock-research-bot/internal/storage/sqlite"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -314,6 +319,249 @@ func (c stubDARTCorporationClient) CorporationCodes(
 	context.Context,
 ) (dart.CorporationCodeResult, error) {
 	return c.result, c.err
+}
+
+func TestKRXInstrumentSyncClassifiesAndMapsStoredInstrument(t *testing.T) {
+	tempDirectory := t.TempDir()
+	databasePath := filepath.Join(tempDirectory, "forgetmenot.db")
+	watchlistPath := filepath.Join(tempDirectory, "watchlist.csv")
+	watchlistCSV := `name,ticker,yahoo_ticker,dart_corp_code,market,currency
+NH프라임리츠,338100,338100.KS,,KOSPI,KRW
+`
+	if err := os.WriteFile(watchlistPath, []byte(watchlistCSV), 0o600); err != nil {
+		t.Fatalf("write watchlist: %v", err)
+	}
+
+	fetchedAt := time.Date(2026, 7, 27, 11, 0, 0, 0, time.UTC)
+	modifiedAt := time.Date(2026, 7, 24, 0, 0, 0, 0, time.UTC)
+	store, err := sqlitestore.Open(context.Background(), databasePath)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	if _, err := store.SyncDARTCorporations(
+		context.Background(),
+		[]models.DARTCorporation{
+			{
+				CorpCode:   "00123456",
+				Name:       "NH프라임리츠",
+				StockCode:  "338100",
+				ModifiedAt: modifiedAt,
+				Source: models.SourceMetadata{
+					Provider:   "opendart",
+					SourceURL:  "https://opendart.fss.or.kr/api/corpCode.xml",
+					ObservedAt: &modifiedAt,
+					FetchedAt:  fetchedAt,
+				},
+			},
+		},
+	); err != nil {
+		t.Fatalf("seed DART corporation: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close seed store: %v", err)
+	}
+	runCommand(
+		t,
+		"watchlist-sync",
+		"-db", databasePath,
+		"-watchlist", watchlistPath,
+		"-output", "json",
+	)
+
+	asOf := time.Date(2026, 7, 24, 0, 0, 0, 0, time.UTC)
+	stub := stubKRXInstrumentClient{
+		results: krxCommandDatasetResults(asOf, fetchedAt),
+	}
+	originalFactory := newKRXInstrumentClient
+	newKRXInstrumentClient = func(apiKey string) krxInstrumentClient {
+		if apiKey != "test-secret" {
+			t.Fatalf("unexpected KRX API key: %q", apiKey)
+		}
+		return stub
+	}
+	t.Cleanup(func() {
+		newKRXInstrumentClient = originalFactory
+	})
+	t.Setenv("KRX_API_KEY", "test-secret")
+
+	output := runCommand(
+		t,
+		"krx-instrument-sync",
+		"-db", databasePath,
+		"-date", "2026-07-24",
+		"-output", "json",
+	)
+	var syncResult krxInstrumentSyncResult
+	if err := json.Unmarshal(output, &syncResult); err != nil {
+		t.Fatalf("decode KRX sync result: %v\n%s", err, output)
+	}
+	if syncResult.Status != models.DataStatusAvailable ||
+		len(syncResult.Datasets) != len(krx.InstrumentDatasets()) ||
+		syncResult.Datasets[0].DARTMapped != 1 {
+		t.Fatalf("unexpected KRX sync result: %#v", syncResult)
+	}
+
+	instrumentOutput := runCommand(
+		t,
+		"watchlist-list",
+		"-db", databasePath,
+		"-output", "json",
+	)
+	var instruments []models.Instrument
+	if err := json.Unmarshal(instrumentOutput, &instruments); err != nil {
+		t.Fatalf("decode instruments: %v\n%s", err, instrumentOutput)
+	}
+	if len(instruments) != 1 ||
+		instruments[0].KRXStandardCode != "KR7338100001" ||
+		instruments[0].InstrumentType != models.InstrumentTypeCommonStock ||
+		instruments[0].DARTCorpCode != "00123456" {
+		t.Fatalf("unexpected mapped instrument: %#v", instruments)
+	}
+}
+
+func TestKRXInstrumentSyncPreservesSuccessfulDatasetsOnPartialFailure(t *testing.T) {
+	tempDirectory := t.TempDir()
+	databasePath := filepath.Join(tempDirectory, "forgetmenot.db")
+	watchlistPath := filepath.Join(tempDirectory, "watchlist.csv")
+	watchlistCSV := `name,ticker,yahoo_ticker,dart_corp_code,market,currency
+ARIRANG 200선물레버리지,253150,253150.KS,,KOSPI,KRW
+`
+	if err := os.WriteFile(watchlistPath, []byte(watchlistCSV), 0o600); err != nil {
+		t.Fatalf("write watchlist: %v", err)
+	}
+	runCommand(
+		t,
+		"watchlist-sync",
+		"-db", databasePath,
+		"-watchlist", watchlistPath,
+		"-output", "json",
+	)
+
+	asOf := time.Date(2026, 7, 24, 0, 0, 0, 0, time.UTC)
+	fetchedAt := time.Date(2026, 7, 27, 11, 0, 0, 0, time.UTC)
+	stub := stubKRXInstrumentClient{
+		results: krxCommandDatasetResults(asOf, fetchedAt),
+		errors: map[krx.Dataset]error{
+			krx.DatasetETN: &provider.Error{
+				Provider:  "krx",
+				Operation: "fetch_instruments",
+				Kind:      provider.ErrorKindUnavailable,
+				Message:   "temporary ETN failure",
+			},
+		},
+	}
+	originalFactory := newKRXInstrumentClient
+	newKRXInstrumentClient = func(string) krxInstrumentClient {
+		return stub
+	}
+	t.Cleanup(func() {
+		newKRXInstrumentClient = originalFactory
+	})
+	t.Setenv("KRX_API_KEY", "test-secret")
+
+	output := runCommand(
+		t,
+		"krx-instrument-sync",
+		"-db", databasePath,
+		"-date", "2026-07-24",
+		"-output", "json",
+	)
+	var syncResult krxInstrumentSyncResult
+	if err := json.Unmarshal(output, &syncResult); err != nil {
+		t.Fatalf("decode partial KRX result: %v\n%s", err, output)
+	}
+	if syncResult.Status != models.DataStatusPartial ||
+		len(syncResult.Issues) != 1 ||
+		syncResult.Issues[0].Scope != "krx_etn" {
+		t.Fatalf("unexpected partial KRX result: %#v", syncResult)
+	}
+
+	instrumentOutput := runCommand(
+		t,
+		"watchlist-list",
+		"-db", databasePath,
+		"-output", "json",
+	)
+	var instruments []models.Instrument
+	if err := json.Unmarshal(instrumentOutput, &instruments); err != nil {
+		t.Fatalf("decode partially synchronized instruments: %v\n%s", err, instrumentOutput)
+	}
+	if len(instruments) != 1 ||
+		instruments[0].InstrumentType != models.InstrumentTypeETF {
+		t.Fatalf("expected successful ETF dataset to persist: %#v", instruments)
+	}
+}
+
+type stubKRXInstrumentClient struct {
+	results map[krx.Dataset]krx.DatasetResult
+	errors  map[krx.Dataset]error
+}
+
+func (c stubKRXInstrumentClient) Instruments(
+	_ context.Context,
+	dataset krx.Dataset,
+	_ time.Time,
+) (krx.DatasetResult, error) {
+	return c.results[dataset], c.errors[dataset]
+}
+
+func krxCommandDatasetResults(
+	asOf time.Time,
+	fetchedAt time.Time,
+) map[krx.Dataset]krx.DatasetResult {
+	results := make(map[krx.Dataset]krx.DatasetResult)
+	for index, dataset := range krx.InstrumentDatasets() {
+		shortCode := fmt.Sprintf("%06d", 100000+index)
+		standardCode := fmt.Sprintf("KR7%09d", 100000+index)
+		instrumentType := models.InstrumentTypeCommonStock
+		market := strings.ToUpper(string(dataset))
+		if dataset == krx.DatasetKOSPI {
+			shortCode = "338100"
+			standardCode = "KR7338100001"
+		}
+		if dataset == krx.DatasetETF {
+			shortCode = "253150"
+			standardCode = ""
+			instrumentType = models.InstrumentTypeETF
+			market = "KRX"
+		}
+		if dataset == krx.DatasetETN {
+			shortCode = "500052"
+			standardCode = ""
+			instrumentType = models.InstrumentTypeETN
+			market = "KRX"
+		}
+		observedAt := asOf
+		source := models.SourceMetadata{
+			Provider:   "krx",
+			SourceURL:  "https://data-dbg.krx.co.kr/svc/apis/test?basDd=20260724",
+			ObservedAt: &observedAt,
+			FetchedAt:  fetchedAt,
+		}
+		var listingDate *time.Time
+		if dataset != krx.DatasetETF && dataset != krx.DatasetETN {
+			listedAt := time.Date(2020, 4, 14, 0, 0, 0, 0, time.UTC)
+			listingDate = &listedAt
+		}
+		results[dataset] = krx.DatasetResult{
+			Dataset: dataset,
+			Status:  models.DataStatusAvailable,
+			Instruments: []models.KRXInstrument{
+				{
+					StandardCode:   standardCode,
+					ShortCode:      shortCode,
+					Name:           "검증 종목 " + string(dataset),
+					Market:         market,
+					InstrumentType: instrumentType,
+					ListingDate:    listingDate,
+					Dataset:        string(dataset),
+					Source:         source,
+				},
+			},
+			Source: source,
+		}
+	}
+	return results
 }
 
 func writeMiraeTestWorkbook(t *testing.T, path string) {

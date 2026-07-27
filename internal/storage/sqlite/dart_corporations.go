@@ -127,6 +127,21 @@ func (s *Store) SyncDARTCorporations(
 		WHERE currency COLLATE NOCASE = 'KRW'
 		  AND length(ticker) = 6
 		  AND upper(ticker) NOT GLOB '*[^0-9A-Z]*'
+		  AND (
+				NOT EXISTS (
+					SELECT 1
+					FROM krx_instruments AS krx
+					WHERE krx.is_current = 1
+					  AND krx.short_code = upper(instruments.ticker)
+				)
+				OR EXISTS (
+					SELECT 1
+					FROM krx_instruments AS krx
+					WHERE krx.is_current = 1
+					  AND krx.short_code = upper(instruments.ticker)
+					  AND krx.instrument_type = 'common_stock'
+				)
+		  )
 		  AND EXISTS (
 				SELECT 1
 				FROM dart_corporations AS corporation

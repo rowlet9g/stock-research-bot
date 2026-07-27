@@ -12,6 +12,17 @@ const (
 	DataStatusNotRequested DataStatus = "not_requested"
 )
 
+type InstrumentType string
+
+const (
+	InstrumentTypeUnknown        InstrumentType = "unknown"
+	InstrumentTypeCommonStock    InstrumentType = "common_stock"
+	InstrumentTypePreferredStock InstrumentType = "preferred_stock"
+	InstrumentTypeETF            InstrumentType = "etf"
+	InstrumentTypeETN            InstrumentType = "etn"
+	InstrumentTypeOtherEquity    InstrumentType = "other_equity"
+)
+
 type SourceMetadata struct {
 	Provider   string     `json:"provider"`
 	SourceURL  string     `json:"source_url"`
@@ -60,15 +71,18 @@ type TradeJournalEntry struct {
 }
 
 type Instrument struct {
-	ID           int64     `json:"id"`
-	Name         string    `json:"name"`
-	Ticker       string    `json:"ticker"`
-	YahooTicker  string    `json:"yahoo_ticker"`
-	DARTCorpCode string    `json:"dart_corp_code,omitempty"`
-	Market       string    `json:"market"`
-	Currency     string    `json:"currency"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID              int64          `json:"id"`
+	Name            string         `json:"name"`
+	Ticker          string         `json:"ticker"`
+	YahooTicker     string         `json:"yahoo_ticker"`
+	DARTCorpCode    string         `json:"dart_corp_code,omitempty"`
+	KRXStandardCode string         `json:"krx_standard_code,omitempty"`
+	InstrumentType  InstrumentType `json:"instrument_type"`
+	KRXVerifiedAt   *time.Time     `json:"krx_verified_at,omitempty"`
+	Market          string         `json:"market"`
+	Currency        string         `json:"currency"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 type DARTCorporation struct {
@@ -78,6 +92,22 @@ type DARTCorporation struct {
 	StockCode   string         `json:"stock_code,omitempty"`
 	ModifiedAt  time.Time      `json:"modified_at"`
 	Source      SourceMetadata `json:"source"`
+}
+
+type KRXInstrument struct {
+	StandardCode    string         `json:"standard_code,omitempty"`
+	ShortCode       string         `json:"short_code"`
+	Name            string         `json:"name"`
+	AbbreviatedName string         `json:"abbreviated_name,omitempty"`
+	EnglishName     string         `json:"english_name,omitempty"`
+	Market          string         `json:"market"`
+	SecurityGroup   string         `json:"security_group,omitempty"`
+	Section         string         `json:"section,omitempty"`
+	ShareType       string         `json:"share_type,omitempty"`
+	InstrumentType  InstrumentType `json:"instrument_type"`
+	ListingDate     *time.Time     `json:"listing_date,omitempty"`
+	Dataset         string         `json:"dataset"`
+	Source          SourceMetadata `json:"source"`
 }
 
 type Trade struct {

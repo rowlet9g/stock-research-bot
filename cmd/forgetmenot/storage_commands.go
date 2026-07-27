@@ -133,12 +133,14 @@ func runWatchlistList(args []string, stdout io.Writer, stderr io.Writer) int {
 	for _, instrument := range instruments {
 		fmt.Fprintf(
 			stdout,
-			"%s\t%s\t%s\t%s\t%s\n",
+			"%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			instrument.Ticker,
 			instrument.Name,
 			instrument.Market,
 			instrument.Currency,
 			instrument.YahooTicker,
+			instrument.InstrumentType,
+			valueOrNA(instrument.KRXStandardCode),
 		)
 	}
 	return 0
@@ -776,6 +778,7 @@ func writeCommandHelp(output io.Writer) {
 	fmt.Fprintln(output, "  trades-import    Import the normalized trade CSV")
 	fmt.Fprintln(output, "  mirae-import     Import the Mirae Asset transaction XLSX")
 	fmt.Fprintln(output, "  dart-corp-sync   Sync OpenDART corporation codes and map instruments")
+	fmt.Fprintln(output, "  krx-instrument-sync Sync KRX instrument identifiers and classifications")
 	fmt.Fprintln(output, "  position-set     Store the current position snapshot")
 	fmt.Fprintln(output, "  thesis-set       Store the current investment thesis")
 	fmt.Fprintln(output, "  portfolio-show   Show instrument, position, trades, and thesis")

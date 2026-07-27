@@ -40,6 +40,8 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 관심종목, 포지션, 거래, 투자 가설 통합 조회
 - 중복 실행에 안전한 정규화 거래 CSV import
 - 미래에셋 거래내역 XLSX 원본 import와 종목 alias cache
+- KRX 공식 종목 마스터 동기화와 보통주, 우선주, ETF, ETN 분류
+- KRX 단축코드, 표준코드와 OpenDART 기업코드 교차 검증
 
 ## 개발 환경 준비
 
@@ -69,8 +71,8 @@ go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name Apple -outp
 CLI는 가격을 `N/A`로 표시하고 프롬프트를 생성합니다.
 
 OpenDART를 사용하려면 `.env.example`을 `.env`로 복사한 뒤
-`OPENDART_API_KEY`를 설정합니다. 저장된 국내 종목은 아래의
-`dart-corp-sync`를 실행하면 종목코드로 `dart_corp_code`가 자동 연결됩니다.
+`OPENDART_API_KEY`를 설정합니다. KRX 종목 마스터를 사용하려면 같은 파일에
+`KRX_API_KEY`를 설정합니다. API 키는 로그, 출처 URL, Git에 기록하지 않습니다.
 
 `OPENAI_API_KEY` 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰는 흐름은 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식으로 둡니다.
 
@@ -83,6 +85,7 @@ OpenDART를 사용하려면 `.env.example`을 `.env`로 복사한 뒤
 go run ./cmd/forgetmenot db-init
 go run ./cmd/forgetmenot watchlist-sync -watchlist data/watchlist.example.csv
 go run ./cmd/forgetmenot dart-corp-sync
+go run ./cmd/forgetmenot krx-instrument-sync
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -109,6 +112,39 @@ OpenDART 요청은 30초 HTTP timeout, 최대 3회 시도, CLI 전체 2분 timeo
 기록하지 않으며 각 기업 행에 원본 변경일과 수집시각을 저장합니다. 현재 OpenDART
 서버와 Go의 TLS 호환을 위해 전용 client에서 TLS 1.2 이상과 AES-GCM 기반 RSA
 키 교환 fallback을 허용합니다.
+
+`krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
+동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해
+승인받아야 합니다.
+
+- 유가증권 종목기본정보
+- 코스닥 종목기본정보
+- 코넥스 종목기본정보
+- ETF 일별매매정보
+- ETN 일별매매정보
+
+`-date YYYY-MM-DD`를 생략하면 서울 시간 기준 직전 평일부터 KOSPI 데이터가 있는
+최근 날짜를 최대 10개 평일까지 역으로 찾습니다. 날짜를 지정하면 그 날짜만
+요청합니다.
+
+KRX의 6자리 단축코드가 저장된 원화 종목 ticker와 정확히 일치할 때
+`krx_standard_code`, `instrument_type`, `krx_verified_at`을 갱신합니다. 보통주만
+동일한 6자리 OpenDART 종목코드와 교차 매핑하며 우선주, ETF, ETN을 기업코드로
+추측하지 않습니다. 새 전체 스냅샷에서 사라진 식별자는 과거 KRX 행을 보존하되
+현재 종목의 KRX 검증 표시를 해제합니다.
+
+다섯 데이터셋 중 일부 요청이 실패하면 성공한 데이터셋만 저장하고 결과를
+`partial`로 표시합니다. 빈 응답은 정상 전체 스냅샷으로 간주하지 않으므로 기존
+마스터를 지우지 않습니다. KRX 서비스는 종목 식별과 일별 정보용이며 실시간 시세
+API가 아닙니다.
+
+2026-07-27 확인 기준 KRX Open API 인증키 유효기간은 1년이고 호출 한도는 일
+10,000회입니다. 비상업적 용도로만 사용할 수 있고 제3자 재배포가 제한되며, KRX
+통계정보를 이용했다는 사실을 표시해야 합니다. 운영 전에는 최신
+[서비스 목록](https://openapi.krx.co.kr/contents/OPP/INFO/service/OPPINFO004.cmd),
+[이용방법](https://openapi.krx.co.kr/contents/OPP/INFO/OPPINFO003.jsp),
+[이용약관](https://openapi.krx.co.kr/contents/OPP/INFO/OPPINFO002.jsp)을 다시
+확인합니다.
 
 금액과 수량은 SQLite에 소수점 8자리 고정 정밀도 정수로 저장합니다. DB 파일,
 개인 거래 CSV, 계좌 원본 CSV는 Git에서 제외됩니다.
@@ -174,7 +210,8 @@ Apple,AAPL,AAPL,,NASDAQ,USD
 
 `dart_corp_code`는 OpenDART의 고유번호입니다. 값은 비워 둬도 되며,
 `watchlist-sync` 후 `dart-corp-sync`를 실행하면 가능한 국내 종목이 자동
-매핑됩니다.
+매핑됩니다. 이어서 `krx-instrument-sync`를 실행하면 국내 증권의 공식 KRX
+식별자와 유형이 보완됩니다.
 
 CSV는 `name`, `ticker`, `yahoo_ticker`, `dart_corp_code`, `market`,
 `currency` 헤더를 모두 포함해야 합니다. `dart_corp_code` 값은 비워둘 수 있지만

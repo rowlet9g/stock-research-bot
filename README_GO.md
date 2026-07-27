@@ -24,6 +24,9 @@
 - 검증된 종목 alias cache와 Yahoo 종목 검색
 - OpenDART 기업 고유번호 전체 목록 동기화
 - SQLite 국내 종목의 DART 고유번호 자동 매핑
+- KRX 종목 마스터 전체 동기화
+- KRX 단축코드, 표준코드와 보통주, 우선주, ETF, ETN 유형 저장
+- KRX와 OpenDART 식별자 교차 검증
 
 OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
 
@@ -43,8 +46,14 @@ DART 공시까지 보려면 `.env` 또는 환경변수에 `OPENDART_API_KEY`를 
 ```powershell
 go run ./cmd/forgetmenot watchlist-sync -watchlist data/watchlist.example.csv
 go run ./cmd/forgetmenot dart-corp-sync
+go run ./cmd/forgetmenot krx-instrument-sync
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
+
+KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
+Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보
+서비스 승인이 필요합니다. 운영 키가 없는 개발 환경에서는 fixture 테스트만
+실행되며 실제 API smoke test는 수행되지 않습니다.
 
 SQLite 및 투자 기록 명령은 루트 `README.md`와 `docs/TRADE_CSV.md`를
 참고합니다.
@@ -59,5 +68,5 @@ go test ./...
 go vet ./...
 ```
 
-Yahoo와 OpenDART 파서는 `internal/*/testdata` fixture를 사용해 실제 네트워크 없이
-검증합니다.
+Yahoo, OpenDART, KRX 파서는 `internal/*/testdata` fixture를 사용해 실제
+네트워크 없이 검증합니다.
