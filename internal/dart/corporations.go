@@ -284,7 +284,7 @@ func dartAPIError(operation string, status string, message string) error {
 	switch status {
 	case "010", "011", "012", "901":
 		kind = provider.ErrorKindInvalidRequest
-	case "013":
+	case "013", "014":
 		kind = provider.ErrorKindNoData
 	case "020", "800":
 		kind = provider.ErrorKindUnavailable

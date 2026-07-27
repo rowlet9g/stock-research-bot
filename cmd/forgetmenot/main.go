@@ -64,6 +64,10 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runDARTDisclosureSync(args[1:], stdout, stderr)
 		case "dart-disclosure-list":
 			return runDARTDisclosureList(args[1:], stdout, stderr)
+		case "dart-document-sync":
+			return runDARTDocumentSync(args[1:], stdout, stderr)
+		case "dart-document-list":
+			return runDARTDocumentList(args[1:], stdout, stderr)
 		case "krx-instrument-sync":
 			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":

@@ -29,6 +29,7 @@
 - KRX와 OpenDART 식별자 교차 검증
 - OpenDART 공시 목록 전체 페이지 동기화와 SQLite 저장
 - 공시 접수번호 기반 멱등 저장과 저장 결과 조회
+- OpenDART 공시 원본 ZIP 검증, 로컬 저장과 내용 기반 버전 추적
 
 OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
 
@@ -51,8 +52,16 @@ go run ./cmd/forgetmenot dart-corp-sync
 go run ./cmd/forgetmenot krx-instrument-sync
 go run ./cmd/forgetmenot dart-disclosure-sync -days 30
 go run ./cmd/forgetmenot dart-disclosure-list -ticker 005930 -limit 20
+go run ./cmd/forgetmenot dart-document-sync -ticker 005930 -limit 10
+go run ./cmd/forgetmenot dart-document-list -receipt-no 20260727000099
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
+
+`dart-document-sync`는 공시 원본 ZIP을 기본
+`data/raw/opendart/documents` 아래에 저장하고 SQLite에는 원본 파일 해시,
+압축 해제된 내용 해시, 개별 파일 해시와 출처 시각을 기록합니다. 같은 내용이
+다른 ZIP 바이트로 재전송되어도 논리 버전은 하나로 유지합니다. 저장 루트와
+데이터베이스는 Git에서 제외됩니다.
 
 KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
 Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보

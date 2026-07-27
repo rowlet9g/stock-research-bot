@@ -108,6 +108,29 @@ type DARTDisclosure struct {
 	Source      SourceMetadata `json:"source"`
 }
 
+type DARTDocumentEntry struct {
+	Index             int    `json:"index"`
+	Name              string `json:"name"`
+	SHA256            string `json:"sha256"`
+	CompressedBytes   int64  `json:"compressed_bytes"`
+	UncompressedBytes int64  `json:"uncompressed_bytes"`
+	CRC32             uint32 `json:"crc32"`
+}
+
+type DARTDocumentArchive struct {
+	ID            int64               `json:"id,omitempty"`
+	ReceiptNo     string              `json:"receipt_no"`
+	SHA256        string              `json:"sha256"`
+	ContentSHA256 string              `json:"content_sha256"`
+	SizeBytes     int64               `json:"size_bytes"`
+	RelativePath  string              `json:"relative_path"`
+	IsCurrent     bool                `json:"is_current"`
+	Entries       []DARTDocumentEntry `json:"entries"`
+	Source        SourceMetadata      `json:"source"`
+	CreatedAt     time.Time           `json:"created_at,omitempty"`
+	UpdatedAt     time.Time           `json:"updated_at,omitempty"`
+}
+
 type KRXInstrument struct {
 	StandardCode    string         `json:"standard_code,omitempty"`
 	ShortCode       string         `json:"short_code"`

@@ -44,6 +44,7 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - KRX 단축코드, 표준코드와 OpenDART 기업코드 교차 검증
 - OpenDART 공시 목록 전체 페이지 수집과 SQLite 영구 저장
 - 공시 접수번호 기반 중복 방지와 저장된 공시 조회
+- OpenDART 공시 원본 ZIP 검증, 파일 저장과 논리 버전 추적
 
 ## 개발 환경 준비
 
@@ -90,6 +91,8 @@ go run ./cmd/forgetmenot dart-corp-sync
 go run ./cmd/forgetmenot krx-instrument-sync
 go run ./cmd/forgetmenot dart-disclosure-sync -days 30
 go run ./cmd/forgetmenot dart-disclosure-list -ticker 005930 -limit 20
+go run ./cmd/forgetmenot dart-document-sync -ticker 005930 -limit 10
+go run ./cmd/forgetmenot dart-document-list -receipt-no 20260727000099
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -129,9 +132,21 @@ OpenDART 요청은 30초 HTTP timeout, 최대 3회 시도, CLI 전체 2분 timeo
 저장 결과는 `dart-disclosure-list -ticker <ticker>` 또는
 `-corp-code <corp_code>`로 확인할 수 있습니다.
 
-현재 범위는 [OpenDART 공시검색 API](https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS001&apiId=2019001)의
-목록 메타데이터입니다. 공시 원문 파일과 정기보고서 구조화 재무정보 저장은 다음
-작업 범위입니다.
+공시 목록은 [OpenDART 공시검색 API](https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS001&apiId=2019001)를
+사용합니다. `dart-document-sync`는 아직 원본이 없는 최신 공시를 골라
+[공시서류원본파일 API](https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS001&apiId=2019003)의
+ZIP을 `data/raw/opendart/documents/<접수번호>/<원본 SHA-256>.zip`에 저장합니다.
+특정 접수번호는 `-receipt-no`, 이미 저장된 공시를 다시 확인할 때는 `-force`를
+사용합니다. 한 문서가 실패해도 나머지 문서는 계속 처리하며 한 번에 최대 100건만
+허용합니다.
+
+다운로드한 ZIP은 경로 이동, 중복 파일명, 손상된 CRC, 과도한 파일 수와 압축 해제
+크기를 검사합니다. ZIP 바이트의 SHA-256은 파일 무결성에 사용하고, 압축 해제된
+파일명과 내용의 SHA-256으로 계산한 `content_sha256`은 논리 버전 판정에 사용합니다.
+따라서 OpenDART가 같은 문서를 다른 ZIP 메타데이터로 다시 압축해도 새 문서
+버전으로 기록하지 않습니다. 원본 파일과 실제 DB는 Git에서 제외됩니다.
+
+정기보고서의 구조화 재무정보 저장은 다음 작업 범위입니다.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해
