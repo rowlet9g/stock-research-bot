@@ -1,4 +1,4 @@
-# FORGETMENOT: Stock Discussion Bot
+# ForgetMeNot: Stock Discussion Bot
 
 DART 공시/재무 정보와 Yahoo Finance 시세 데이터를 결합해 투자 공부용 리서치 봇을 만드는 프로젝트입니다.
 
