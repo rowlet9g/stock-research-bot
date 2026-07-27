@@ -131,6 +131,42 @@ type DARTDocumentArchive struct {
 	UpdatedAt     time.Time           `json:"updated_at,omitempty"`
 }
 
+type DARTFinancialAccount struct {
+	Index                   int    `json:"index"`
+	StatementKind           string `json:"statement_kind"`
+	StatementName           string `json:"statement_name"`
+	AccountID               string `json:"account_id,omitempty"`
+	AccountName             string `json:"account_name"`
+	AccountDetail           string `json:"account_detail,omitempty"`
+	CurrentTermName         string `json:"current_term_name"`
+	CurrentAmount           string `json:"current_amount,omitempty"`
+	CurrentAddAmount        string `json:"current_add_amount,omitempty"`
+	PreviousTermName        string `json:"previous_term_name,omitempty"`
+	PreviousAmount          string `json:"previous_amount,omitempty"`
+	PreviousInterimTermName string `json:"previous_interim_term_name,omitempty"`
+	PreviousInterimAmount   string `json:"previous_interim_amount,omitempty"`
+	PreviousAddAmount       string `json:"previous_add_amount,omitempty"`
+	BeforePreviousTermName  string `json:"before_previous_term_name,omitempty"`
+	BeforePreviousAmount    string `json:"before_previous_amount,omitempty"`
+	Order                   int    `json:"order"`
+	Currency                string `json:"currency"`
+}
+
+type DARTFinancialStatement struct {
+	ID            int64                  `json:"id,omitempty"`
+	CorpCode      string                 `json:"corp_code"`
+	BusinessYear  int                    `json:"business_year"`
+	ReportCode    string                 `json:"report_code"`
+	FSKind        string                 `json:"fs_kind"`
+	ReceiptNo     string                 `json:"receipt_no"`
+	ContentSHA256 string                 `json:"content_sha256"`
+	IsCurrent     bool                   `json:"is_current"`
+	Accounts      []DARTFinancialAccount `json:"accounts"`
+	Source        SourceMetadata         `json:"source"`
+	CreatedAt     time.Time              `json:"created_at,omitempty"`
+	UpdatedAt     time.Time              `json:"updated_at,omitempty"`
+}
+
 type KRXInstrument struct {
 	StandardCode    string         `json:"standard_code,omitempty"`
 	ShortCode       string         `json:"short_code"`

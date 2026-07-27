@@ -1,0 +1,52 @@
+{
+  "status": "000",
+  "message": "정상",
+  "list": [
+    {
+      "rcept_no": "20260310000777",
+      "reprt_code": "11011",
+      "bsns_year": "2025",
+      "corp_code": "00126380",
+      "sj_div": "BS",
+      "sj_nm": "연결 재무상태표",
+      "account_id": "ifrs-full_Assets",
+      "account_nm": "자산총계",
+      "account_detail": "",
+      "thstrm_nm": "제 57 기",
+      "thstrm_amount": "500,000,000,000,000",
+      "thstrm_add_amount": "",
+      "frmtrm_nm": "제 56 기말",
+      "frmtrm_amount": "450,000,000,000,000",
+      "frmtrm_q_nm": "",
+      "frmtrm_q_amount": "",
+      "frmtrm_add_amount": "",
+      "bfefrmtrm_nm": "제 55 기말",
+      "bfefrmtrm_amount": "420,000,000,000,000",
+      "ord": "1",
+      "currency": "KRW"
+    },
+    {
+      "rcept_no": "20260310000777",
+      "reprt_code": "11011",
+      "bsns_year": "2025",
+      "corp_code": "00126380",
+      "sj_div": "IS",
+      "sj_nm": "연결 손익계산서",
+      "account_id": "ifrs-full_Revenue",
+      "account_nm": "수익(매출액)",
+      "account_detail": "",
+      "thstrm_nm": "제 57 기",
+      "thstrm_amount": "-300,000,000,000",
+      "thstrm_add_amount": "300,000,000,000,000",
+      "frmtrm_nm": "",
+      "frmtrm_amount": "",
+      "frmtrm_q_nm": "제 56 기",
+      "frmtrm_q_amount": "280,000,000,000,000",
+      "frmtrm_add_amount": "280,000,000,000,000",
+      "bfefrmtrm_nm": "",
+      "bfefrmtrm_amount": "",
+      "ord": "2",
+      "currency": "KRW"
+    }
+  ]
+}

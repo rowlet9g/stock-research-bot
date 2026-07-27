@@ -782,6 +782,8 @@ func writeCommandHelp(output io.Writer) {
 	fmt.Fprintln(output, "  dart-disclosure-list List stored OpenDART disclosures")
 	fmt.Fprintln(output, "  dart-document-sync Download and store OpenDART original documents")
 	fmt.Fprintln(output, "  dart-document-list List stored OpenDART document versions")
+	fmt.Fprintln(output, "  dart-financial-sync Sync OpenDART full financial statements")
+	fmt.Fprintln(output, "  dart-financial-list List stored OpenDART financial statement versions")
 	fmt.Fprintln(output, "  krx-instrument-sync Sync KRX instrument identifiers and classifications")
 	fmt.Fprintln(output, "  position-set     Store the current position snapshot")
 	fmt.Fprintln(output, "  thesis-set       Store the current investment thesis")

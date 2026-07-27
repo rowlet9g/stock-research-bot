@@ -45,6 +45,7 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - OpenDART 공시 목록 전체 페이지 수집과 SQLite 영구 저장
 - 공시 접수번호 기반 중복 방지와 저장된 공시 조회
 - OpenDART 공시 원본 ZIP 검증, 파일 저장과 논리 버전 추적
+- OpenDART 전체 재무제표 계정 정규화, SQLite 버전 저장과 조회
 
 ## 개발 환경 준비
 
@@ -93,6 +94,8 @@ go run ./cmd/forgetmenot dart-disclosure-sync -days 30
 go run ./cmd/forgetmenot dart-disclosure-list -ticker 005930 -limit 20
 go run ./cmd/forgetmenot dart-document-sync -ticker 005930 -limit 10
 go run ./cmd/forgetmenot dart-document-list -receipt-no 20260727000099
+go run ./cmd/forgetmenot dart-financial-sync -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS
+go run ./cmd/forgetmenot dart-financial-list -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS -account-limit 100
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -146,7 +149,25 @@ ZIP을 `data/raw/opendart/documents/<접수번호>/<원본 SHA-256>.zip`에 저�
 따라서 OpenDART가 같은 문서를 다른 ZIP 메타데이터로 다시 압축해도 새 문서
 버전으로 기록하지 않습니다. 원본 파일과 실제 DB는 Git에서 제외됩니다.
 
-정기보고서의 구조화 재무정보 저장은 다음 작업 범위입니다.
+`dart-financial-sync`는
+[OpenDART 단일회사 전체 재무제표 API](https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS003&apiId=2019020)를
+사용합니다. `-year`는 2015년 이후 사업연도, `-report-code`는 아래 보고서
+코드, `-fs-div`는 연결 `CFS`, 개별 `OFS` 또는 동기화 명령에서만 사용할 수 있는
+`both`를 받습니다.
+
+- `11011`: 사업보고서
+- `11012`: 반기보고서
+- `11013`: 1분기보고서
+- `11014`: 3분기보고서
+
+API 금액은 쉼표를 제거한 부호 포함 정수 문자열로 정규화합니다. `float64`로
+변환하지 않으므로 큰 재무 수치의 정밀도를 잃지 않습니다. 조회 조건별 전체 계정의
+내용 해시를 계산해 같은 결과의 반복 수집은 기존 버전을 갱신하고, 정정공시처럼
+접수번호나 계정 내용이 바뀌면 이전 버전을 보존한 채 새 현재 버전을 저장합니다.
+기업 또는 연결/개별 요청 하나가 실패해도 성공한 재무제표는 저장합니다.
+
+현재 단계는 계정 원자료의 수집과 정규화입니다. 매출, 영업이익, 현금흐름 등 핵심
+계정 매핑과 증감률, 재무비율 계산은 분석 엔진 작업에서 추가합니다.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해
