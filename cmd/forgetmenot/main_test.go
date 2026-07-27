@@ -2,9 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rowlet9g/stock-research-bot/internal/models"
+	sqlitestore "github.com/rowlet9g/stock-research-bot/internal/storage/sqlite"
 )
 
 func TestRunWritesStructuredJSONForInputError(t *testing.T) {
@@ -45,5 +50,37 @@ func TestRunRejectsUnsupportedOutputFormat(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), `output must be "text" or "json"`) {
 		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+}
+
+func TestEnrichDARTCorporationCodeUsesStoredMapping(t *testing.T) {
+	ctx := context.Background()
+	databasePath := filepath.Join(t.TempDir(), "forgetmenot.db")
+	store, err := sqlitestore.Open(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	item := models.WatchlistItem{
+		Name:         "삼성전자",
+		Ticker:       "005930",
+		YahooTicker:  "005930.KS",
+		DARTCorpCode: "00126380",
+		Market:       "KOSPI",
+		Currency:     "KRW",
+	}
+	if _, err := store.UpsertInstrument(ctx, item); err != nil {
+		t.Fatalf("upsert instrument: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+
+	item.DARTCorpCode = ""
+	enriched, err := enrichDARTCorporationCode(ctx, item, databasePath)
+	if err != nil {
+		t.Fatalf("enrich corporation code: %v", err)
+	}
+	if enriched.DARTCorpCode != "00126380" {
+		t.Fatalf("expected stored corporation code, got %#v", enriched)
 	}
 }

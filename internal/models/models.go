@@ -71,6 +71,15 @@ type Instrument struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+type DARTCorporation struct {
+	CorpCode    string         `json:"corp_code"`
+	Name        string         `json:"name"`
+	EnglishName string         `json:"english_name,omitempty"`
+	StockCode   string         `json:"stock_code,omitempty"`
+	ModifiedAt  time.Time      `json:"modified_at"`
+	Source      SourceMetadata `json:"source"`
+}
+
 type Trade struct {
 	ID             int64     `json:"id"`
 	InstrumentID   int64     `json:"instrument_id"`

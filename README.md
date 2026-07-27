@@ -68,8 +68,9 @@ go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name Apple -outp
 이 명령은 Yahoo Finance에 실제 네트워크 요청을 보냅니다. Yahoo 응답이 실패해도
 CLI는 가격을 `N/A`로 표시하고 프롬프트를 생성합니다.
 
-OpenDART 공시를 사용하려면 `.env.example`을 `.env`로 복사한 뒤
-`OPENDART_API_KEY`를 설정하고, 관심종목 CSV에 `dart_corp_code`를 입력합니다.
+OpenDART를 사용하려면 `.env.example`을 `.env`로 복사한 뒤
+`OPENDART_API_KEY`를 설정합니다. 저장된 국내 종목은 아래의
+`dart-corp-sync`를 실행하면 종목코드로 `dart_corp_code`가 자동 연결됩니다.
 
 `OPENAI_API_KEY` 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰는 흐름은 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식으로 둡니다.
 
@@ -81,6 +82,7 @@ OpenDART 공시를 사용하려면 `.env.example`을 `.env`로 복사한 뒤
 ```powershell
 go run ./cmd/forgetmenot db-init
 go run ./cmd/forgetmenot watchlist-sync -watchlist data/watchlist.example.csv
+go run ./cmd/forgetmenot dart-corp-sync
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -90,6 +92,23 @@ go run ./cmd/forgetmenot portfolio-show -ticker AAPL -output json
 
 `watchlist-sync`는 CSV 종목을 추가하거나 갱신합니다. 저장된 거래가 없는 종목은
 `watchlist-delete -ticker <ticker>`로 삭제할 수 있습니다.
+
+`dart-corp-sync`는 OpenDART의 기업 고유번호 ZIP/XML 전체 파일을 받아
+`dart_corporations`에 원자적으로 갱신합니다. 원본이 비었거나, 중복 식별자나 잘못된
+행이 있거나, 다운로드가 중단되면 기존 현재 목록과 종목 매핑은 유지됩니다. 정상
+목록에 없는 과거 기업은 삭제하지 않고 비활성 상태로 보존합니다.
+
+국내 원화 종목은 6자리 대문자 영숫자 종목코드가 정확히 일치할 때
+`instruments.dart_corp_code`가 갱신됩니다. 이후 분석 명령은 관심종목 CSV의
+`dart_corp_code`가 비어 있으면 SQLite에 저장된 값을 사용합니다. DART 파일은
+기업별 대표 종목코드를 제공하므로 ETF, ETN, 우선주 등 모든 국내 증권을 완전히
+매핑하지는 못하며 이 범위는 KRX 식별자 동기화에서 보완합니다.
+
+OpenDART 요청은 30초 HTTP timeout, 최대 3회 시도, CLI 전체 2분 timeout을
+적용합니다. HTTP 429와 5xx만 제한적으로 재시도합니다. 출처 URL에는 인증키를
+기록하지 않으며 각 기업 행에 원본 변경일과 수집시각을 저장합니다. 현재 OpenDART
+서버와 Go의 TLS 호환을 위해 전용 client에서 TLS 1.2 이상과 AES-GCM 기반 RSA
+키 교환 fallback을 허용합니다.
 
 금액과 수량은 SQLite에 소수점 8자리 고정 정밀도 정수로 저장합니다. DB 파일,
 개인 거래 CSV, 계좌 원본 CSV는 Git에서 제외됩니다.
@@ -153,7 +172,9 @@ name,ticker,yahoo_ticker,dart_corp_code,market,currency
 Apple,AAPL,AAPL,,NASDAQ,USD
 ```
 
-`dart_corp_code`는 OpenDART의 고유번호입니다. 정확한 매핑 테이블은 별도 수집 기능으로 추가하는 것이 안전합니다.
+`dart_corp_code`는 OpenDART의 고유번호입니다. 값은 비워 둬도 되며,
+`watchlist-sync` 후 `dart-corp-sync`를 실행하면 가능한 국내 종목이 자동
+매핑됩니다.
 
 CSV는 `name`, `ticker`, `yahoo_ticker`, `dart_corp_code`, `market`,
 `currency` 헤더를 모두 포함해야 합니다. `dart_corp_code` 값은 비워둘 수 있지만

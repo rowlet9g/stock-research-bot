@@ -775,6 +775,7 @@ func writeCommandHelp(output io.Writer) {
 	fmt.Fprintln(output, "  watchlist-delete Delete an instrument without trade history")
 	fmt.Fprintln(output, "  trades-import    Import the normalized trade CSV")
 	fmt.Fprintln(output, "  mirae-import     Import the Mirae Asset transaction XLSX")
+	fmt.Fprintln(output, "  dart-corp-sync   Sync OpenDART corporation codes and map instruments")
 	fmt.Fprintln(output, "  position-set     Store the current position snapshot")
 	fmt.Fprintln(output, "  thesis-set       Store the current investment thesis")
 	fmt.Fprintln(output, "  portfolio-show   Show instrument, position, trades, and thesis")

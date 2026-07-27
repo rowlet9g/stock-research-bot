@@ -2,11 +2,15 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/rowlet9g/stock-research-bot/internal/dart"
+	"github.com/rowlet9g/stock-research-bot/internal/models"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -214,6 +218,102 @@ EXAMPLE ETF,EXMP,EXMP,NASDAQ,USD,https://example.com/exmp,2026-07-24
 	if !secondImport.Import.AlreadyImported {
 		t.Fatalf("expected repeated file marker: %#v", secondImport)
 	}
+}
+
+func TestDARTCorporationSyncMapsStoredInstrument(t *testing.T) {
+	tempDirectory := t.TempDir()
+	databasePath := filepath.Join(tempDirectory, "forgetmenot.db")
+	watchlistPath := filepath.Join(tempDirectory, "watchlist.csv")
+	watchlistCSV := `name,ticker,yahoo_ticker,dart_corp_code,market,currency
+삼성전자,005930,005930.KS,,KOSPI,KRW
+`
+	if err := os.WriteFile(watchlistPath, []byte(watchlistCSV), 0o600); err != nil {
+		t.Fatalf("write watchlist: %v", err)
+	}
+	runCommand(
+		t,
+		"watchlist-sync",
+		"-db", databasePath,
+		"-watchlist", watchlistPath,
+		"-output", "json",
+	)
+
+	fetchedAt := time.Date(2026, 7, 27, 11, 0, 0, 0, time.UTC)
+	modifiedAt := time.Date(2026, 7, 24, 0, 0, 0, 0, time.UTC)
+	originalFactory := newDARTCorporationClient
+	newDARTCorporationClient = func(apiKey string) dartCorporationClient {
+		if apiKey != "test-secret" {
+			t.Fatalf("unexpected API key passed to client: %q", apiKey)
+		}
+		return stubDARTCorporationClient{
+			result: dart.CorporationCodeResult{
+				Status: models.DataStatusAvailable,
+				Corporations: []models.DARTCorporation{
+					{
+						CorpCode:   "00126380",
+						Name:       "삼성전자",
+						StockCode:  "005930",
+						ModifiedAt: modifiedAt,
+						Source: models.SourceMetadata{
+							Provider:   "opendart",
+							SourceURL:  "https://opendart.fss.or.kr/api/corpCode.xml",
+							ObservedAt: &modifiedAt,
+							FetchedAt:  fetchedAt,
+						},
+					},
+				},
+				Source: models.SourceMetadata{
+					Provider:   "opendart",
+					SourceURL:  "https://opendart.fss.or.kr/api/corpCode.xml",
+					ObservedAt: &modifiedAt,
+					FetchedAt:  fetchedAt,
+				},
+			},
+		}
+	}
+	t.Cleanup(func() {
+		newDARTCorporationClient = originalFactory
+	})
+	t.Setenv("OPENDART_API_KEY", "test-secret")
+
+	output := runCommand(
+		t,
+		"dart-corp-sync",
+		"-db", databasePath,
+		"-output", "json",
+	)
+	var syncResult dartCorporationSyncResult
+	if err := json.Unmarshal(output, &syncResult); err != nil {
+		t.Fatalf("decode OpenDART sync result: %v\n%s", err, output)
+	}
+	if syncResult.Corporations != 1 || syncResult.InstrumentsMapped != 1 {
+		t.Fatalf("unexpected OpenDART sync result: %#v", syncResult)
+	}
+
+	instrumentOutput := runCommand(
+		t,
+		"watchlist-list",
+		"-db", databasePath,
+		"-output", "json",
+	)
+	var instruments []models.Instrument
+	if err := json.Unmarshal(instrumentOutput, &instruments); err != nil {
+		t.Fatalf("decode instruments: %v\n%s", err, instrumentOutput)
+	}
+	if len(instruments) != 1 || instruments[0].DARTCorpCode != "00126380" {
+		t.Fatalf("expected mapped instrument, got %#v", instruments)
+	}
+}
+
+type stubDARTCorporationClient struct {
+	result dart.CorporationCodeResult
+	err    error
+}
+
+func (c stubDARTCorporationClient) CorporationCodes(
+	context.Context,
+) (dart.CorporationCodeResult, error) {
+	return c.result, c.err
 }
 
 func writeMiraeTestWorkbook(t *testing.T, path string) {

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"github.com/rowlet9g/stock-research-bot/internal/models"
 	"github.com/rowlet9g/stock-research-bot/internal/prompt"
 	"github.com/rowlet9g/stock-research-bot/internal/provider"
+	sqlitestore "github.com/rowlet9g/stock-research-bot/internal/storage/sqlite"
 	"github.com/rowlet9g/stock-research-bot/internal/watchlist"
 	"github.com/rowlet9g/stock-research-bot/internal/yahoo"
 )
@@ -56,6 +58,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runTradesImport(args[1:], stdout, stderr)
 		case "mirae-import":
 			return runMiraeImport(args[1:], stdout, stderr)
+		case "dart-corp-sync":
+			return runDARTCorporationSync(args[1:], stdout, stderr)
 		case "position-set":
 			return runPositionSet(args[1:], stdout, stderr)
 		case "thesis-set":
@@ -82,6 +86,7 @@ func runAnalyze(args []string, stdout io.Writer, stderr io.Writer) int {
 	ticker := flags.String("ticker", "", "ticker or Yahoo ticker to analyze")
 	thesis := flags.String("thesis", "", "user investment thesis")
 	days := flags.Int("days", 30, "DART disclosure lookback days")
+	databasePath := flags.String("db", defaultDatabasePath, "SQLite database path")
 	outputFormat := flags.String("output", "text", "output format: text or json")
 	if err := flags.Parse(args); err != nil {
 		return 2
@@ -122,6 +127,20 @@ func runAnalyze(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	issues := []outputIssue{}
+	identifierContext, cancelIdentifiers := context.WithTimeout(context.Background(), 10*time.Second)
+	selected, err = enrichDARTCorporationCode(
+		identifierContext,
+		selected,
+		*databasePath,
+	)
+	cancelIdentifiers()
+	if err != nil {
+		issues = append(issues, outputIssue{
+			Scope:   "identifiers",
+			Kind:    "operation_failed",
+			Message: err.Error(),
+		})
+	}
 
 	priceContext, cancelPrice := context.WithTimeout(context.Background(), providerRequestTimeout)
 	snapshot, priceErr := yahoo.BuildPriceSnapshot(priceContext, selected.YahooTicker)
@@ -214,6 +233,41 @@ func runAnalyze(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	writeText(stdout, result)
 	return 0
+}
+
+func enrichDARTCorporationCode(
+	ctx context.Context,
+	item models.WatchlistItem,
+	databasePath string,
+) (models.WatchlistItem, error) {
+	if strings.TrimSpace(item.DARTCorpCode) != "" ||
+		strings.TrimSpace(databasePath) == "" {
+		return item, nil
+	}
+	if _, err := os.Stat(databasePath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return item, nil
+		}
+		return item, fmt.Errorf("inspect identifier database %q: %w", databasePath, err)
+	}
+
+	store, err := sqlitestore.Open(ctx, databasePath)
+	if err != nil {
+		return item, fmt.Errorf("open identifier database: %w", err)
+	}
+	defer store.Close()
+
+	instrument, err := store.Instrument(ctx, item.Ticker)
+	if err != nil {
+		if errors.Is(err, sqlitestore.ErrNotFound) {
+			return item, nil
+		}
+		return item, fmt.Errorf("query stored instrument %q: %w", item.Ticker, err)
+	}
+	if strings.TrimSpace(instrument.DARTCorpCode) != "" {
+		item.DARTCorpCode = instrument.DARTCorpCode
+	}
+	return item, nil
 }
 
 func writeFailure(outputFormat string, stdout io.Writer, stderr io.Writer, issue outputIssue) int {

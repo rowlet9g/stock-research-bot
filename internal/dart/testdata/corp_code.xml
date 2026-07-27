@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<result>
+  <list>
+    <corp_code>00126380</corp_code>
+    <corp_name>삼성전자</corp_name>
+    <corp_eng_name>SAMSUNG ELECTRONICS CO., LTD.</corp_eng_name>
+    <stock_code>005930</stock_code>
+    <modify_date>20260406</modify_date>
+  </list>
+  <list>
+    <corp_code>01234567</corp_code>
+    <corp_name>테스트영숫자</corp_name>
+    <corp_eng_name>TEST ALPHANUMERIC CO., LTD.</corp_eng_name>
+    <stock_code>0068Y0</stock_code>
+    <modify_date>20260301</modify_date>
+  </list>
+  <list>
+    <corp_code>07654321</corp_code>
+    <corp_name>테스트비상장</corp_name>
+    <corp_eng_name>TEST PRIVATE CO., LTD.</corp_eng_name>
+    <stock_code></stock_code>
+    <modify_date>20260201</modify_date>
+  </list>
+</result>

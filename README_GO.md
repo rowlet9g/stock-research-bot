@@ -22,6 +22,8 @@
 - 미래에셋 거래내역 XLSX 원본 import
 - 거래 단가 파생, 데이터 품질 상태, 결정론적 거래 ID
 - 검증된 종목 alias cache와 Yahoo 종목 검색
+- OpenDART 기업 고유번호 전체 목록 동기화
+- SQLite 국내 종목의 DART 고유번호 자동 매핑
 
 OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
 
@@ -34,7 +36,15 @@ go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전�
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name Apple -output json
 ```
 
-DART 공시까지 보려면 `.env` 또는 환경변수에 `OPENDART_API_KEY`를 설정하고, 관심종목 CSV의 `dart_corp_code`를 채워야 합니다.
+DART 공시까지 보려면 `.env` 또는 환경변수에 `OPENDART_API_KEY`를 설정합니다.
+관심종목을 SQLite에 저장한 뒤 기업 고유번호를 동기화하면 CSV의
+`dart_corp_code`를 직접 채우지 않아도 분석 명령이 저장된 매핑을 사용합니다.
+
+```powershell
+go run ./cmd/forgetmenot watchlist-sync -watchlist data/watchlist.example.csv
+go run ./cmd/forgetmenot dart-corp-sync
+go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
+```
 
 SQLite 및 투자 기록 명령은 루트 `README.md`와 `docs/TRADE_CSV.md`를
 참고합니다.

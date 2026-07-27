@@ -2,6 +2,7 @@ package dart
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -36,20 +37,47 @@ type DisclosureResult struct {
 }
 
 type Client struct {
-	apiKey     string
-	baseURL    string
-	httpClient *http.Client
-	now        func() time.Time
+	apiKey      string
+	baseURL     string
+	httpClient  *http.Client
+	now         func() time.Time
+	maxAttempts int
+	retryDelay  time.Duration
 }
 
 func NewClient(apiKey string) *Client {
 	return &Client{
-		apiKey:  strings.TrimSpace(apiKey),
-		baseURL: defaultBaseURL,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+		apiKey:      strings.TrimSpace(apiKey),
+		baseURL:     defaultBaseURL,
+		httpClient:  newOpenDARTHTTPClient(),
+		now:         time.Now,
+		maxAttempts: 3,
+		retryDelay:  200 * time.Millisecond,
+	}
+}
+
+func newOpenDARTHTTPClient() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+			// OpenDART currently requires an RSA key-exchange fallback with Go clients.
+			tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 		},
-		now: time.Now,
+	}
+	return &http.Client{
+		Transport: transport,
+		Timeout:   30 * time.Second,
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
 }
 

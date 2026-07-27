@@ -27,7 +27,10 @@ func (s *Store) UpsertInstrument(ctx context.Context, item models.WatchlistItem)
 		ON CONFLICT(ticker) DO UPDATE SET
 			name = excluded.name,
 			yahoo_ticker = excluded.yahoo_ticker,
-			dart_corp_code = excluded.dart_corp_code,
+			dart_corp_code = CASE
+				WHEN trim(excluded.dart_corp_code) <> '' THEN excluded.dart_corp_code
+				ELSE instruments.dart_corp_code
+			END,
 			market = excluded.market,
 			currency = excluded.currency,
 			updated_at = excluded.updated_at
@@ -67,7 +70,10 @@ func (s *Store) SyncInstruments(ctx context.Context, items []models.WatchlistIte
 			ON CONFLICT(ticker) DO UPDATE SET
 				name = excluded.name,
 				yahoo_ticker = excluded.yahoo_ticker,
-				dart_corp_code = excluded.dart_corp_code,
+				dart_corp_code = CASE
+					WHEN trim(excluded.dart_corp_code) <> '' THEN excluded.dart_corp_code
+					ELSE instruments.dart_corp_code
+				END,
 				market = excluded.market,
 				currency = excluded.currency,
 				updated_at = excluded.updated_at
