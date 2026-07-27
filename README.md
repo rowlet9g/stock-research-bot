@@ -42,6 +42,8 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 미래에셋 거래내역 XLSX 원본 import와 종목 alias cache
 - KRX 공식 종목 마스터 동기화와 보통주, 우선주, ETF, ETN 분류
 - KRX 단축코드, 표준코드와 OpenDART 기업코드 교차 검증
+- OpenDART 공시 목록 전체 페이지 수집과 SQLite 영구 저장
+- 공시 접수번호 기반 중복 방지와 저장된 공시 조회
 
 ## 개발 환경 준비
 
@@ -86,6 +88,8 @@ go run ./cmd/forgetmenot db-init
 go run ./cmd/forgetmenot watchlist-sync -watchlist data/watchlist.example.csv
 go run ./cmd/forgetmenot dart-corp-sync
 go run ./cmd/forgetmenot krx-instrument-sync
+go run ./cmd/forgetmenot dart-disclosure-sync -days 30
+go run ./cmd/forgetmenot dart-disclosure-list -ticker 005930 -limit 20
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -112,6 +116,22 @@ OpenDART 요청은 30초 HTTP timeout, 최대 3회 시도, CLI 전체 2분 timeo
 기록하지 않으며 각 기업 행에 원본 변경일과 수집시각을 저장합니다. 현재 OpenDART
 서버와 Go의 TLS 호환을 위해 전용 client에서 TLS 1.2 이상과 AES-GCM 기반 RSA
 키 교환 fallback을 허용합니다.
+
+`dart-disclosure-sync`는 저장된 종목 중 `dart_corp_code`가 있는 기업을 대상으로
+지정 기간의 공시 목록을 전체 페이지 수집합니다. 특정 기업만 확인하려면
+`-ticker`, 조회 기간은 `-days`, API 페이지 크기는 `-page-size`로 지정합니다.
+한 기업의 요청이 실패해도 성공한 다른 기업의 공시는 저장하고 결과를 `partial`로
+표시합니다.
+
+공시는 OpenDART 접수번호 14자리를 기본 식별자로 사용합니다. 반복 동기화 시 새
+접수번호는 추가하고 기존 접수번호는 출처와 마지막 관측시각을 갱신합니다. 접수일,
+법인구분, 제출인, 비고, DART 공시 뷰어 URL, 출처와 수집시각을 함께 저장합니다.
+저장 결과는 `dart-disclosure-list -ticker <ticker>` 또는
+`-corp-code <corp_code>`로 확인할 수 있습니다.
+
+현재 범위는 [OpenDART 공시검색 API](https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS001&apiId=2019001)의
+목록 메타데이터입니다. 공시 원문 파일과 정기보고서 구조화 재무정보 저장은 다음
+작업 범위입니다.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해

@@ -94,6 +94,20 @@ type DARTCorporation struct {
 	Source      SourceMetadata `json:"source"`
 }
 
+type DARTDisclosure struct {
+	CorpClass   string         `json:"corp_class"`
+	CorpCode    string         `json:"corp_code"`
+	CorpName    string         `json:"corp_name"`
+	StockCode   string         `json:"stock_code,omitempty"`
+	ReportName  string         `json:"report_name"`
+	ReceiptNo   string         `json:"receipt_no"`
+	ReceiptDate time.Time      `json:"receipt_date"`
+	Submitter   string         `json:"submitter"`
+	Remark      string         `json:"remark,omitempty"`
+	ViewerURL   string         `json:"viewer_url"`
+	Source      SourceMetadata `json:"source"`
+}
+
 type KRXInstrument struct {
 	StandardCode    string         `json:"standard_code,omitempty"`
 	ShortCode       string         `json:"short_code"`

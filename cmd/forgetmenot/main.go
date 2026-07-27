@@ -60,6 +60,10 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runMiraeImport(args[1:], stdout, stderr)
 		case "dart-corp-sync":
 			return runDARTCorporationSync(args[1:], stdout, stderr)
+		case "dart-disclosure-sync":
+			return runDARTDisclosureSync(args[1:], stdout, stderr)
+		case "dart-disclosure-list":
+			return runDARTDisclosureList(args[1:], stdout, stderr)
 		case "krx-instrument-sync":
 			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":
@@ -322,7 +326,14 @@ func writeText(output io.Writer, result cliResult) {
 		fmt.Fprintln(output, "- 제공된 공시 없음")
 	}
 	for _, item := range result.Disclosures.Disclosures {
-		fmt.Fprintf(output, "- %s %s: %s (%s)\n", item.ReceiptDate, item.CorpName, item.ReportName, item.ReceiptNo)
+		fmt.Fprintf(
+			output,
+			"- %s %s: %s (%s)\n",
+			item.ReceiptDate.Format("2006-01-02"),
+			item.CorpName,
+			item.ReportName,
+			item.ReceiptNo,
+		)
 	}
 
 	if len(result.Issues) > 0 {

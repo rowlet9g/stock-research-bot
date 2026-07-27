@@ -254,6 +254,11 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - KRX 보통주와 OpenDART 대표 종목코드의 교차 매핑 및 충돌 집계
 - 데이터셋별 부분 실패 저장, 빈 스냅샷 거부, 과거 행 비활성 보존
 - KRX 인증키 header 처리, 429/5xx 재시도, 출처 URL에서 인증키 제외
+- OpenDART 공시검색의 전체 페이지 수집과 엄격한 응답 필드 검증
+- 공시 접수번호 기반 SQLite upsert와 반복 실행 중복 방지
+- 접수일, 법인구분, 제출인, 비고, 뷰어 URL, 출처와 수집시각 저장
+- 기업별 부분 실패를 격리하는 `dart-disclosure-sync` CLI
+- 저장된 최신 공시를 조회하는 `dart-disclosure-list` CLI
 
 운영 API 검증 기록:
 
@@ -265,6 +270,11 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - ETF 일별매매정보 1,150건 저장
 - ETN 일별매매정보 376건 저장
 - 다섯 데이터셋 모두 `available`, OpenDART 식별자 충돌 0건 확인
+- 실제 미래에셋 원장 132행에서 체결 40건과 종목 15개를 중복 없이 저장
+- 국내 종목 6개 KRX 매핑, 보통주 5개 OpenDART 기업코드 매핑
+- 2026-06-27~2026-07-27 국내 5개 기업 공시 804건 수집
+- 삼성전자 공시 775건 반복 동기화에서 신규 0건, 갱신 775건 확인
+- 국내 5개 기업 공시 수집 상태 `available`, 기업별 실패 없음
 
 완료 기준:
 
@@ -385,10 +395,8 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 
 - 서버 실행 위치: 개인 PC, NAS, VPS, 클라우드
 - 외부 HTTPS 공개 방식과 도메인
-- 미래에셋 CSV의 실제 열 구성과 내보내기 절차
 - 이메일 공급자
 - Telegram과 이메일의 알림 기준
-- KRX 서비스 승인 상태와 최신 이용약관 변경 여부
 - 뉴스 제공자의 비용과 재배포 조건
 - 전용 UI를 PWA로 할지 모바일 앱으로 할지
 - OpenAI API를 향후 선택 기능으로 제공할지
@@ -398,6 +406,7 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 단계 2의 SQLite 저장과 미래에셋 거래내역 XLSX import, 단계 3의 OpenDART 기업
 고유번호 전체 파일 및 KRX 종목 마스터 동기화 구현과 운영 API 검증을 완료했다.
 
-1. OpenDART 공시 원문과 정기보고서 재무정보를 저장한다.
-2. 미국 종목은 SEC ticker와 CIK mapping을 추가한다.
-3. 현재 Yahoo 종목 검색 fallback의 결과를 공식 식별자로 교차 검증한다.
+1. OpenDART 공시 원문 파일을 수집하고 원문 메타데이터를 저장한다.
+2. OpenDART 정기보고서의 구조화 재무정보를 저장한다.
+3. 미국 종목은 SEC ticker와 CIK mapping을 추가한다.
+4. 현재 Yahoo 종목 검색 fallback의 결과를 공식 식별자로 교차 검증한다.

@@ -7,20 +7,26 @@
   "total_page": 1,
   "list": [
     {
+      "corp_cls": "Y",
       "corp_code": "00126380",
       "corp_name": "삼성전자",
+      "stock_code": "005930",
       "report_nm": "주요사항보고서",
       "rcept_no": "20260724000123",
       "flr_nm": "삼성전자",
-      "rcept_dt": "20260724"
+      "rcept_dt": "20260724",
+      "rm": "유"
     },
     {
+      "corp_cls": "Y",
       "corp_code": "00126380",
       "corp_name": "삼성전자",
+      "stock_code": "005930",
       "report_nm": "기업설명회(IR)개최",
       "rcept_no": "20260723000456",
       "flr_nm": "삼성전자",
-      "rcept_dt": "20260723"
+      "rcept_dt": "20260723",
+      "rm": "유"
     }
   ]
 }

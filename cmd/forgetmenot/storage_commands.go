@@ -778,6 +778,8 @@ func writeCommandHelp(output io.Writer) {
 	fmt.Fprintln(output, "  trades-import    Import the normalized trade CSV")
 	fmt.Fprintln(output, "  mirae-import     Import the Mirae Asset transaction XLSX")
 	fmt.Fprintln(output, "  dart-corp-sync   Sync OpenDART corporation codes and map instruments")
+	fmt.Fprintln(output, "  dart-disclosure-sync Sync and store OpenDART disclosure history")
+	fmt.Fprintln(output, "  dart-disclosure-list List stored OpenDART disclosures")
 	fmt.Fprintln(output, "  krx-instrument-sync Sync KRX instrument identifiers and classifications")
 	fmt.Fprintln(output, "  position-set     Store the current position snapshot")
 	fmt.Fprintln(output, "  thesis-set       Store the current investment thesis")

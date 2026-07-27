@@ -52,6 +52,13 @@ func TestRecentDisclosuresReturnsSourceMetadata(t *testing.T) {
 	if len(result.Disclosures) != 2 {
 		t.Fatalf("expected 2 disclosures, got %d", len(result.Disclosures))
 	}
+	if result.TotalCount != 2 || result.PagesFetched != 1 {
+		t.Fatalf("unexpected pagination metadata: %#v", result)
+	}
+	if result.Disclosures[0].ViewerURL !=
+		"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260724000123" {
+		t.Fatalf("unexpected viewer URL: %#v", result.Disclosures[0])
+	}
 	if strings.Contains(result.Source.SourceURL, "test-secret") {
 		t.Fatalf("source URL leaks API key: %s", result.Source.SourceURL)
 	}
@@ -61,6 +68,89 @@ func TestRecentDisclosuresReturnsSourceMetadata(t *testing.T) {
 	wantObservedAt := time.Date(2026, 7, 24, 0, 0, 0, 0, time.UTC)
 	if result.Source.ObservedAt == nil || !result.Source.ObservedAt.Equal(wantObservedAt) {
 		t.Fatalf("expected observed_at %s, got %v", wantObservedAt, result.Source.ObservedAt)
+	}
+}
+
+func TestDisclosureHistoryFetchesEveryPage(t *testing.T) {
+	var requestedPages []string
+	server := httptest.NewServer(http.HandlerFunc(func(
+		response http.ResponseWriter,
+		request *http.Request,
+	) {
+		page := request.URL.Query().Get("page_no")
+		requestedPages = append(requestedPages, page)
+		response.Header().Set("Content-Type", "application/json")
+		if page == "1" {
+			_, _ = response.Write([]byte(`{
+				"status":"000",
+				"message":"정상",
+				"page_no":1,
+				"page_count":1,
+				"total_count":2,
+				"total_page":2,
+				"list":[{
+					"corp_cls":"Y",
+					"corp_code":"00126380",
+					"corp_name":"삼성전자",
+					"stock_code":"005930",
+					"report_nm":"주요사항보고서",
+					"rcept_no":"20260724000123",
+					"flr_nm":"삼성전자",
+					"rcept_dt":"20260724",
+					"rm":"유"
+				}]
+			}`))
+			return
+		}
+		_, _ = response.Write([]byte(`{
+			"status":"000",
+			"message":"정상",
+			"page_no":2,
+			"page_count":1,
+			"total_count":2,
+			"total_page":2,
+			"list":[{
+				"corp_cls":"Y",
+				"corp_code":"00126380",
+				"corp_name":"삼성전자",
+				"stock_code":"005930",
+				"report_nm":"기업설명회(IR)개최",
+				"rcept_no":"20260723000456",
+				"flr_nm":"삼성전자",
+				"rcept_dt":"20260723",
+				"rm":"유"
+			}]
+		}`))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		apiKey:     "test-secret",
+		baseURL:    server.URL,
+		httpClient: server.Client(),
+		now: func() time.Time {
+			return time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC)
+		},
+		maxAttempts: 1,
+	}
+	result, err := client.DisclosureHistory(
+		context.Background(),
+		"00126380",
+		time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 7, 27, 0, 0, 0, 0, time.UTC),
+		1,
+	)
+	if err != nil {
+		t.Fatalf("fetch disclosure history: %v", err)
+	}
+	if result.Status != models.DataStatusAvailable ||
+		len(result.Disclosures) != 2 ||
+		result.PagesFetched != 2 ||
+		result.TotalCount != 2 {
+		t.Fatalf("unexpected disclosure history: %#v", result)
+	}
+	if strings.Join(requestedPages, ",") != "1,2" {
+		t.Fatalf("unexpected requested pages: %#v", requestedPages)
 	}
 }
 

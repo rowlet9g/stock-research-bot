@@ -38,7 +38,16 @@ func BuildStockBriefPrompt(input StockBriefInput) string {
 		if i >= 10 {
 			break
 		}
-		disclosureLines = append(disclosureLines, fmt.Sprintf("- %s %s: %s (%s)", item.ReceiptDate, item.CorpName, item.ReportName, item.ReceiptNo))
+		disclosureLines = append(
+			disclosureLines,
+			fmt.Sprintf(
+				"- %s %s: %s (%s)",
+				item.ReceiptDate.Format("2006-01-02"),
+				item.CorpName,
+				item.ReportName,
+				item.ReceiptNo,
+			),
+		)
 	}
 	if len(disclosureLines) == 0 {
 		disclosureLines = append(disclosureLines, "- 제공된 공시 없음")

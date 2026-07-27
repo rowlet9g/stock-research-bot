@@ -27,6 +27,8 @@
 - KRX 종목 마스터 전체 동기화
 - KRX 단축코드, 표준코드와 보통주, 우선주, ETF, ETN 유형 저장
 - KRX와 OpenDART 식별자 교차 검증
+- OpenDART 공시 목록 전체 페이지 동기화와 SQLite 저장
+- 공시 접수번호 기반 멱등 저장과 저장 결과 조회
 
 OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
 
@@ -47,6 +49,8 @@ DART 공시까지 보려면 `.env` 또는 환경변수에 `OPENDART_API_KEY`를 
 go run ./cmd/forgetmenot watchlist-sync -watchlist data/watchlist.example.csv
 go run ./cmd/forgetmenot dart-corp-sync
 go run ./cmd/forgetmenot krx-instrument-sync
+go run ./cmd/forgetmenot dart-disclosure-sync -days 30
+go run ./cmd/forgetmenot dart-disclosure-list -ticker 005930 -limit 20
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
 
