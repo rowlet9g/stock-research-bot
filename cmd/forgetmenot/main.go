@@ -82,6 +82,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runResearchBrief(args[1:], stdout, stderr)
 		case "position-reconcile":
 			return runPositionReconcile(args[1:], stdout, stderr)
+		case "positions-import":
+			return runPositionsImport(args[1:], stdout, stderr)
 		case "krx-instrument-sync":
 			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":

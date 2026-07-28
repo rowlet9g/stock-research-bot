@@ -789,6 +789,7 @@ func writeCommandHelp(output io.Writer) {
 	fmt.Fprintln(output, "  risk-assess      Evaluate evidence-based risk review rules")
 	fmt.Fprintln(output, "  research-brief   Generate a ChatGPT Plus research prompt")
 	fmt.Fprintln(output, "  position-reconcile Compare trade-period changes with stored positions")
+	fmt.Fprintln(output, "  positions-import Import current position snapshots from CSV")
 	fmt.Fprintln(output, "  krx-instrument-sync Sync KRX instrument identifiers and classifications")
 	fmt.Fprintln(output, "  position-set     Store the current position snapshot")
 	fmt.Fprintln(output, "  thesis-set       Store the current investment thesis")

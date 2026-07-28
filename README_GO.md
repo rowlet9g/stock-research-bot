@@ -67,6 +67,7 @@ go run ./cmd/forgetmenot analysis-snapshot -ticker 005930 -output json
 go run ./cmd/forgetmenot risk-assess -ticker 005930 -output json
 go run ./cmd/forgetmenot research-brief -ticker 005930 -question "투자 가설이 유효한가?" -output text
 go run ./cmd/forgetmenot position-reconcile -output json
+go run ./cmd/forgetmenot positions-import -file data/positions.csv
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
 
@@ -103,6 +104,11 @@ go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전�
 `position-reconcile`은 매수·매도 수량으로 거래기간 순증을 계산하되 이를 현재
 보유수량으로 간주하지 않습니다. 기초잔고가 없기 때문입니다. 저장된 현재 포지션이
 있을 때만 역산 기초잔고를 참고값으로 제공하며 실제 데이터를 수정하지 않습니다.
+
+`positions-import`는 별도로 확인한 현재 포지션 CSV를 한 트랜잭션으로 저장합니다.
+종목 중복, 미등록 종목 또는 잘못된 값이 하나라도 있으면 전체 import를 취소하고,
+동일한 스냅샷을 다시 가져오면 저장된 갱신 시각을 유지합니다. 자세한 형식은
+[`docs/POSITION_CSV.md`](docs/POSITION_CSV.md)에 정리되어 있습니다.
 
 KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
 Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보

@@ -106,6 +106,7 @@ go run ./cmd/forgetmenot analysis-snapshot -ticker 005930 -output json
 go run ./cmd/forgetmenot risk-assess -ticker 005930 -output json
 go run ./cmd/forgetmenot research-brief -ticker 005930 -question "현재 투자 가설에서 가장 먼저 확인할 위험은?" -output text
 go run ./cmd/forgetmenot position-reconcile -output json
+go run ./cmd/forgetmenot positions-import -file data/positions.csv
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -234,6 +235,12 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 `현재수량 - 기간순증`으로 기초잔고를 역산하며, 이 값도 증권사 잔고로 검증된
 사실이 아니라 `opening_balance_implied`로 표시합니다. 입출고처럼 지원하지 않는
 거래 유형이 있으면 기초잔고를 계산하지 않습니다.
+
+`positions-import`는 증권사 잔고처럼 별도로 확인한 현재 포지션 스냅샷을 CSV에서
+일괄 저장합니다. 전체 파일을 한 트랜잭션으로 처리하므로 한 행이라도 유효하지 않으면
+아무 행도 반영하지 않으며, 같은 내용을 다시 가져와도 갱신 시각을 바꾸지 않습니다.
+거래내역이나 `position-reconcile` 결과로 현재 포지션을 자동 생성하지 않습니다.
+입력 형식과 안전 규칙은 [현재 포지션 CSV 형식](docs/POSITION_CSV.md)을 참고하세요.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해
