@@ -7,19 +7,37 @@ import (
 )
 
 type Settings struct {
-	OpenDARTAPIKey string
-	KRXAPIKey      string
-	OpenAIAPIKey   string
-	OpenAIModel    string
+	OpenDARTAPIKey      string
+	KRXAPIKey           string
+	OpenAIAPIKey        string
+	OpenAIModel         string
+	SMTPHost            string
+	SMTPPort            string
+	SMTPUsername        string
+	SMTPPassword        string
+	SMTPTLSMode         string
+	EmailFrom           string
+	EmailTo             string
+	EmailSubjectPrefix  string
+	EmailReportTimeZone string
 }
 
 func Load(envPath string) Settings {
 	loadDotEnv(envPath)
 	return Settings{
-		OpenDARTAPIKey: os.Getenv("OPENDART_API_KEY"),
-		KRXAPIKey:      os.Getenv("KRX_API_KEY"),
-		OpenAIAPIKey:   os.Getenv("OPENAI_API_KEY"),
-		OpenAIModel:    os.Getenv("OPENAI_MODEL"),
+		OpenDARTAPIKey:      os.Getenv("OPENDART_API_KEY"),
+		KRXAPIKey:           os.Getenv("KRX_API_KEY"),
+		OpenAIAPIKey:        os.Getenv("OPENAI_API_KEY"),
+		OpenAIModel:         os.Getenv("OPENAI_MODEL"),
+		SMTPHost:            os.Getenv("SMTP_HOST"),
+		SMTPPort:            os.Getenv("SMTP_PORT"),
+		SMTPUsername:        os.Getenv("SMTP_USERNAME"),
+		SMTPPassword:        os.Getenv("SMTP_PASSWORD"),
+		SMTPTLSMode:         os.Getenv("SMTP_TLS_MODE"),
+		EmailFrom:           os.Getenv("EMAIL_FROM"),
+		EmailTo:             os.Getenv("EMAIL_TO"),
+		EmailSubjectPrefix:  os.Getenv("EMAIL_SUBJECT_PREFIX"),
+		EmailReportTimeZone: os.Getenv("EMAIL_REPORT_TIMEZONE"),
 	}
 }
 
