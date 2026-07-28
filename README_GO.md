@@ -35,6 +35,7 @@
 - 가격, 포트폴리오, 공시와 재무정보의 통합 분석 입력 스냅샷
 - 출처 증거와 확인 질문을 포함하는 결정론적 위험 규칙 평가
 - ChatGPT Plus에 붙여넣는 통합 리서치 브리핑 프롬프트
+- 거래기간 수량 변화와 저장 포지션의 읽기 전용 대조
 
 OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
 
@@ -65,6 +66,7 @@ go run ./cmd/forgetmenot dart-financial-metrics -ticker 005930 -year 2025 -repor
 go run ./cmd/forgetmenot analysis-snapshot -ticker 005930 -output json
 go run ./cmd/forgetmenot risk-assess -ticker 005930 -output json
 go run ./cmd/forgetmenot research-brief -ticker 005930 -question "투자 가설이 유효한가?" -output text
+go run ./cmd/forgetmenot position-reconcile -output json
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
 
@@ -97,6 +99,10 @@ go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전�
 `research-brief`는 같은 입력 해시의 스냅샷과 위험 평가를 ChatGPT Plus용 프롬프트로
 구성합니다. text는 붙여넣기용 프롬프트만, JSON은 원본 스냅샷·평가·프롬프트를 함께
 반환합니다. OpenAI API를 호출하지 않습니다.
+
+`position-reconcile`은 매수·매도 수량으로 거래기간 순증을 계산하되 이를 현재
+보유수량으로 간주하지 않습니다. 기초잔고가 없기 때문입니다. 저장된 현재 포지션이
+있을 때만 역산 기초잔고를 참고값으로 제공하며 실제 데이터를 수정하지 않습니다.
 
 KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
 Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보

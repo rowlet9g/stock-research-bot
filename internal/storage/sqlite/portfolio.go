@@ -151,6 +151,28 @@ func (s *Store) Portfolio(ctx context.Context, ticker string) (models.PortfolioR
 	return record, nil
 }
 
+func (s *Store) ListPortfolios(
+	ctx context.Context,
+) ([]models.PortfolioRecord, error) {
+	instruments, err := s.ListInstruments(ctx)
+	if err != nil {
+		return nil, err
+	}
+	records := make([]models.PortfolioRecord, 0, len(instruments))
+	for _, instrument := range instruments {
+		record, err := s.Portfolio(ctx, instrument.Ticker)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"load portfolio %q: %w",
+				instrument.Ticker,
+				err,
+			)
+		}
+		records = append(records, record)
+	}
+	return records, nil
+}
+
 func (s *Store) position(ctx context.Context, instrumentID int64) (models.Position, error) {
 	var position models.Position
 	var asOf string

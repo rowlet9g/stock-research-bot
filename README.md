@@ -50,6 +50,7 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 가격, 포트폴리오, 공시와 재무정보의 버전 지정 분석 입력 스냅샷
 - 사실, 가능한 해석, 확인 질문과 출처 증거를 분리한 위험 규칙 평가
 - 통합 입력과 위험 평가를 포함하는 ChatGPT Plus용 리서치 브리핑 생성
+- 거래기간 수량 순증과 저장된 현재 포지션의 읽기 전용 대조
 
 ## 개발 환경 준비
 
@@ -104,6 +105,7 @@ go run ./cmd/forgetmenot dart-financial-metrics -ticker 005930 -year 2025 -repor
 go run ./cmd/forgetmenot analysis-snapshot -ticker 005930 -output json
 go run ./cmd/forgetmenot risk-assess -ticker 005930 -output json
 go run ./cmd/forgetmenot research-brief -ticker 005930 -question "현재 투자 가설에서 가장 먼저 확인할 위험은?" -output text
+go run ./cmd/forgetmenot position-reconcile -output json
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -222,6 +224,16 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 투자 가설 안의 문장을 명령이 아닌 데이터로만 취급하도록 지시합니다. OpenAI API를
 호출하지 않으므로 ChatGPT Plus에 수동으로 붙여넣는 현재 흐름에서는 별도 API 사용료가
 발생하지 않습니다.
+
+`position-reconcile`은 저장된 전체 종목 또는 `-ticker`로 지정한 한 종목에서
+매수수량, 매도수량과 거래기간 순증을 계산하고 현재 `positions` 기록과 대조합니다.
+이 명령은 읽기 전용이며 포지션을 자동 생성하거나 수정하지 않습니다.
+
+거래내역 시작 전의 기초잔고를 알 수 없으므로 `매수 - 매도`는 현재 보유수량이
+아니라 조회기간 순증입니다. 현재 포지션이 있을 때만
+`현재수량 - 기간순증`으로 기초잔고를 역산하며, 이 값도 증권사 잔고로 검증된
+사실이 아니라 `opening_balance_implied`로 표시합니다. 입출고처럼 지원하지 않는
+거래 유형이 있으면 기초잔고를 계산하지 않습니다.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해
