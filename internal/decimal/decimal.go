@@ -87,6 +87,28 @@ func Format(value int64) string {
 	return fmt.Sprintf("%s%d.%s", sign, whole, fractionText)
 }
 
+// Multiply returns left*right rounded half away from zero at Scale precision.
+func Multiply(left int64, right int64) (int64, error) {
+	product := new(big.Int).Mul(big.NewInt(left), big.NewInt(right))
+	divisor := big.NewInt(Scale)
+	quotient := new(big.Int)
+	remainder := new(big.Int)
+	quotient.QuoRem(product, divisor, remainder)
+
+	absoluteRemainder := new(big.Int).Abs(remainder)
+	if absoluteRemainder.Mul(absoluteRemainder, big.NewInt(2)).Cmp(divisor) >= 0 {
+		if (left < 0) == (right < 0) {
+			quotient.Add(quotient, big.NewInt(1))
+		} else {
+			quotient.Sub(quotient, big.NewInt(1))
+		}
+	}
+	if !quotient.IsInt64() {
+		return 0, fmt.Errorf("decimal multiplication result exceeds int64 range")
+	}
+	return quotient.Int64(), nil
+}
+
 // Divide returns dividend/divisor rounded half away from zero at Scale precision.
 func Divide(dividend int64, divisor int64) (int64, error) {
 	if divisor == 0 {

@@ -37,6 +37,50 @@ func TestFormatHandlesMinimumInt64(t *testing.T) {
 	}
 }
 
+func TestMultiplyRoundsAtScalePrecision(t *testing.T) {
+	tests := map[string]struct {
+		left     string
+		right    string
+		expected string
+	}{
+		"exact": {
+			left:     "2.5",
+			right:    "210.4",
+			expected: "526",
+		},
+		"rounds positive": {
+			left:     "0.00000001",
+			right:    "0.5",
+			expected: "0.00000001",
+		},
+		"rounds negative": {
+			left:     "-0.00000001",
+			right:    "0.5",
+			expected: "-0.00000001",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			left := mustParse(t, test.left)
+			right := mustParse(t, test.right)
+			result, err := Multiply(left, right)
+			if err != nil {
+				t.Fatalf("multiply: %v", err)
+			}
+			if got := Format(result); got != test.expected {
+				t.Fatalf("expected %q, got %q", test.expected, got)
+			}
+		})
+	}
+}
+
+func TestMultiplyRejectsOverflow(t *testing.T) {
+	if _, err := Multiply(math.MaxInt64, 2*Scale); err == nil {
+		t.Fatal("expected multiplication overflow")
+	}
+}
+
 func TestDivideRoundsAtScalePrecision(t *testing.T) {
 	tests := map[string]struct {
 		dividend string
