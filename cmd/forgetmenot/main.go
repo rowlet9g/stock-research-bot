@@ -92,6 +92,10 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runPortfolioBrief(args[1:], stdout, stderr)
 		case "analysis-run-list":
 			return runAnalysisRunList(args[1:], stdout, stderr)
+		case "alert-evaluate":
+			return runAlertEvaluate(args[1:], stdout, stderr)
+		case "alert-list":
+			return runAlertList(args[1:], stdout, stderr)
 		case "krx-instrument-sync":
 			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":

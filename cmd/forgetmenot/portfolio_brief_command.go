@@ -138,7 +138,7 @@ func runPortfolioBrief(
 		run, duplicate, err := store.SaveAnalysisRun(
 			ctx,
 			sqlitestore.AnalysisRunInput{
-				Kind:        "portfolio_brief",
+				Kind:        portfolioBriefAnalysisKind,
 				Status:      scenarios.Status,
 				InputSHA256: brief.ValuationSHA256,
 				RuleVersion: brief.Version,
