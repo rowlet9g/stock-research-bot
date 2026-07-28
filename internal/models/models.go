@@ -46,17 +46,25 @@ type PriceBar struct {
 }
 
 type PriceSnapshot struct {
-	YahooTicker string         `json:"yahoo_ticker"`
-	Currency    string         `json:"currency,omitempty"`
-	Status      DataStatus     `json:"status"`
-	LatestBar   *PriceBar      `json:"latest_bar,omitempty"`
-	LastPrice   *float64       `json:"last_price,omitempty"`
-	ChangePct1D *float64       `json:"change_pct_1d,omitempty"`
-	MA20        *float64       `json:"ma20,omitempty"`
-	MA60        *float64       `json:"ma60,omitempty"`
-	Volume      *int64         `json:"volume,omitempty"`
-	Source      SourceMetadata `json:"source"`
-	Warnings    []string       `json:"warnings,omitempty"`
+	YahooTicker                string         `json:"yahoo_ticker"`
+	Currency                   string         `json:"currency,omitempty"`
+	Status                     DataStatus     `json:"status"`
+	MetricVersion              string         `json:"metric_version,omitempty"`
+	LatestBar                  *PriceBar      `json:"latest_bar,omitempty"`
+	LastPrice                  *float64       `json:"last_price,omitempty"`
+	ChangePct1D                *float64       `json:"change_pct_1d,omitempty"`
+	ReturnPct20D               *float64       `json:"return_pct_20d,omitempty"`
+	ReturnPct60D               *float64       `json:"return_pct_60d,omitempty"`
+	AnnualizedVolatilityPct20D *float64       `json:"annualized_volatility_pct_20d,omitempty"`
+	AnnualizedVolatilityPct60D *float64       `json:"annualized_volatility_pct_60d,omitempty"`
+	MaxDrawdownPct6M           *float64       `json:"max_drawdown_pct_6m,omitempty"`
+	MA20                       *float64       `json:"ma20,omitempty"`
+	MA60                       *float64       `json:"ma60,omitempty"`
+	Volume                     *int64         `json:"volume,omitempty"`
+	PreviousAverageVolume20D   *float64       `json:"previous_average_volume_20d,omitempty"`
+	VolumeRatio20D             *float64       `json:"volume_ratio_20d,omitempty"`
+	Source                     SourceMetadata `json:"source"`
+	Warnings                   []string       `json:"warnings,omitempty"`
 }
 
 type TradeJournalEntry struct {

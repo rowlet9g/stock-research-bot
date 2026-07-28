@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://query1.finance.yahoo.com/v8/finance/chart"
-	providerName   = "yahoo_finance"
+	defaultBaseURL     = "https://query1.finance.yahoo.com/v8/finance/chart"
+	providerName       = "yahoo_finance"
+	PriceMetricVersion = "yahoo-price-metrics/v1"
 )
 
 type Client struct {
@@ -39,8 +40,9 @@ func NewClient() *Client {
 
 func EmptyPriceSnapshot(yahooTicker string) models.PriceSnapshot {
 	return models.PriceSnapshot{
-		YahooTicker: yahooTicker,
-		Status:      models.DataStatusUnavailable,
+		YahooTicker:   yahooTicker,
+		Status:        models.DataStatusUnavailable,
+		MetricVersion: PriceMetricVersion,
 		Source: models.SourceMetadata{
 			Provider:  providerName,
 			SourceURL: defaultBaseURL,
@@ -159,11 +161,12 @@ func (c *Client) fetchPriceHistory(ctx context.Context, yahooTicker string) (pri
 
 func buildPriceSnapshot(yahooTicker string, history priceHistory) models.PriceSnapshot {
 	snapshot := models.PriceSnapshot{
-		YahooTicker: yahooTicker,
-		Currency:    history.Currency,
-		Status:      models.DataStatusAvailable,
-		Source:      history.Source,
-		Warnings:    history.Warnings,
+		YahooTicker:   yahooTicker,
+		Currency:      history.Currency,
+		Status:        models.DataStatusAvailable,
+		MetricVersion: PriceMetricVersion,
+		Source:        history.Source,
+		Warnings:      history.Warnings,
 	}
 	if len(history.Warnings) > 0 {
 		snapshot.Status = models.DataStatusPartial
@@ -189,12 +192,33 @@ func buildPriceSnapshot(yahooTicker string, history priceHistory) models.PriceSn
 	snapshot.LastPrice = &lastPrice
 	snapshot.MA20 = movingAverage(closes, 20)
 	snapshot.MA60 = movingAverage(closes, 60)
+	snapshot.ReturnPct20D = periodReturnPct(closes, 20)
+	snapshot.ReturnPct60D = periodReturnPct(closes, 60)
+	snapshot.AnnualizedVolatilityPct20D = annualizedVolatilityPct(
+		closes,
+		20,
+	)
+	snapshot.AnnualizedVolatilityPct60D = annualizedVolatilityPct(
+		closes,
+		60,
+	)
+	snapshot.MaxDrawdownPct6M = maxDrawdownPct(closes)
 	observedAt := latest.Timestamp
 	snapshot.Source.ObservedAt = &observedAt
 
 	if latest.Volume != nil {
 		volume := *latest.Volume
 		snapshot.Volume = &volume
+		snapshot.PreviousAverageVolume20D = previousAverageVolume(
+			history.Bars,
+			validBarIndexes[len(validBarIndexes)-1],
+			20,
+		)
+		if snapshot.PreviousAverageVolume20D != nil &&
+			*snapshot.PreviousAverageVolume20D > 0 {
+			ratio := float64(volume) / *snapshot.PreviousAverageVolume20D
+			snapshot.VolumeRatio20D = &ratio
+		}
 	}
 	if len(closes) >= 2 {
 		previousPrice := closes[len(closes)-2]
@@ -222,7 +246,11 @@ func buildPriceBars(timestamps []int64, closes []*float64, volumes []*int64) ([]
 	hasMissingValue := false
 	for i, timestamp := range timestamps {
 		bar := models.PriceBar{Timestamp: time.Unix(timestamp, 0).UTC()}
-		if i < len(closes) && closes[i] != nil && !math.IsNaN(*closes[i]) {
+		if i < len(closes) &&
+			closes[i] != nil &&
+			!math.IsNaN(*closes[i]) &&
+			!math.IsInf(*closes[i], 0) &&
+			*closes[i] > 0 {
 			closeValue := *closes[i]
 			bar.Close = &closeValue
 		} else {
@@ -252,6 +280,97 @@ func movingAverage(values []float64, window int) *float64 {
 		sum += value
 	}
 	average := sum / float64(window)
+	return &average
+}
+
+func periodReturnPct(values []float64, periods int) *float64 {
+	if periods <= 0 || len(values) < periods+1 {
+		return nil
+	}
+	start := values[len(values)-periods-1]
+	end := values[len(values)-1]
+	if start <= 0 || end <= 0 {
+		return nil
+	}
+	result := ((end / start) - 1) * 100
+	return &result
+}
+
+func annualizedVolatilityPct(
+	values []float64,
+	periods int,
+) *float64 {
+	if periods < 2 || len(values) < periods+1 {
+		return nil
+	}
+	window := values[len(values)-periods-1:]
+	returns := make([]float64, 0, periods)
+	for index := 1; index < len(window); index++ {
+		if window[index-1] <= 0 || window[index] <= 0 {
+			return nil
+		}
+		returns = append(
+			returns,
+			math.Log(window[index]/window[index-1]),
+		)
+	}
+	mean := 0.0
+	for _, value := range returns {
+		mean += value
+	}
+	mean /= float64(len(returns))
+	sumSquaredDeviation := 0.0
+	for _, value := range returns {
+		difference := value - mean
+		sumSquaredDeviation += difference * difference
+	}
+	sampleVariance := sumSquaredDeviation / float64(len(returns)-1)
+	result := math.Sqrt(sampleVariance) * math.Sqrt(252) * 100
+	return &result
+}
+
+func maxDrawdownPct(values []float64) *float64 {
+	if len(values) == 0 {
+		return nil
+	}
+	peak := values[0]
+	if peak <= 0 {
+		return nil
+	}
+	worst := 0.0
+	for _, value := range values[1:] {
+		if value <= 0 {
+			return nil
+		}
+		if value > peak {
+			peak = value
+			continue
+		}
+		drawdown := ((value / peak) - 1) * 100
+		if drawdown < worst {
+			worst = drawdown
+		}
+	}
+	return &worst
+}
+
+func previousAverageVolume(
+	bars []models.PriceBar,
+	latestIndex int,
+	window int,
+) *float64 {
+	if window <= 0 || latestIndex < window || latestIndex >= len(bars) {
+		return nil
+	}
+	start := latestIndex - window
+	total := float64(0)
+	for _, bar := range bars[start:latestIndex] {
+		if bar.Volume == nil || *bar.Volume < 0 {
+			return nil
+		}
+		total += float64(*bar.Volume)
+	}
+	average := total / float64(window)
 	return &average
 }
 

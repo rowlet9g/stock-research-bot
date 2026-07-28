@@ -2,6 +2,7 @@ package yahoo
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -63,6 +64,86 @@ func TestBuildPriceSnapshotKeepsCloseAndVolumeOnSameTimestamp(t *testing.T) {
 	}
 	if snapshot.Currency != "USD" {
 		t.Fatalf("expected USD, got %q", snapshot.Currency)
+	}
+	if snapshot.MetricVersion != PriceMetricVersion {
+		t.Fatalf("unexpected price metric version: %q", snapshot.MetricVersion)
+	}
+}
+
+func TestBuildPriceSnapshotCalculatesReturnsRiskAndVolume(t *testing.T) {
+	bars := make([]models.PriceBar, 0, 61)
+	for index := 0; index < 61; index++ {
+		closeValue := 100 + float64(index)
+		volume := int64(1000 + index)
+		bars = append(bars, models.PriceBar{
+			Timestamp: time.Date(
+				2026,
+				1,
+				index+1,
+				0,
+				0,
+				0,
+				0,
+				time.UTC,
+			),
+			Close:  &closeValue,
+			Volume: &volume,
+		})
+	}
+	snapshot := buildPriceSnapshot("TEST", priceHistory{
+		Bars:     bars,
+		Currency: "USD",
+		Source: models.SourceMetadata{
+			Provider:  providerName,
+			SourceURL: "https://example.test/TEST",
+			FetchedAt: time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC),
+		},
+	})
+	assertFloatNear(t, snapshot.ReturnPct20D, 14.2857142857, 0.000001)
+	assertFloatNear(t, snapshot.ReturnPct60D, 60, 0.000001)
+	assertFloatNear(
+		t,
+		snapshot.PreviousAverageVolume20D,
+		1049.5,
+		0.000001,
+	)
+	assertFloatNear(
+		t,
+		snapshot.VolumeRatio20D,
+		float64(1060)/1049.5,
+		0.000001,
+	)
+	assertFloatNear(t, snapshot.MaxDrawdownPct6M, 0, 0.000001)
+	if snapshot.AnnualizedVolatilityPct20D == nil ||
+		*snapshot.AnnualizedVolatilityPct20D <= 0 ||
+		snapshot.AnnualizedVolatilityPct60D == nil ||
+		*snapshot.AnnualizedVolatilityPct60D <= 0 {
+		t.Fatalf("volatility was not calculated: %#v", snapshot)
+	}
+}
+
+func TestPriceRiskMetricsCalculatePeakToTroughDrawdown(t *testing.T) {
+	values := []float64{100, 120, 90, 95, 130, 104}
+	assertFloatNear(t, maxDrawdownPct(values), -25, 0.000001)
+}
+
+func TestBuildPriceBarsRejectsNonPositiveAndInfiniteCloses(t *testing.T) {
+	zero := 0.0
+	negative := -1.0
+	infinite := math.Inf(1)
+	volume := int64(1)
+	bars, warnings := buildPriceBars(
+		[]int64{1, 2, 3},
+		[]*float64{&zero, &negative, &infinite},
+		[]*int64{&volume, &volume, &volume},
+	)
+	if len(warnings) != 1 {
+		t.Fatalf("expected invalid close warning, got %#v", warnings)
+	}
+	for _, bar := range bars {
+		if bar.Close != nil {
+			t.Fatalf("invalid close was accepted: %#v", bars)
+		}
 	}
 }
 
@@ -127,5 +208,22 @@ func TestBuildPriceSnapshotClassifiesCancelledContext(t *testing.T) {
 	}
 	if snapshot.Status != models.DataStatusUnavailable {
 		t.Fatalf("expected unavailable snapshot, got %q", snapshot.Status)
+	}
+}
+
+func assertFloatNear(
+	t *testing.T,
+	actual *float64,
+	expected float64,
+	tolerance float64,
+) {
+	t.Helper()
+	if actual == nil || math.Abs(*actual-expected) > tolerance {
+		t.Fatalf(
+			"expected %.10f +/- %.10f, got %v",
+			expected,
+			tolerance,
+			actual,
+		)
 	}
 }
