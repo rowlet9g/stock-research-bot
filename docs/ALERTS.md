@@ -1,8 +1,8 @@
 # 알림 후보
 
 ForgetMeNot의 알림 기반은 저장된 포트폴리오 분석 실행에서 확인할 사건을
-결정론적으로 만들고 SQLite에 중복 없이 기록합니다. 현재 범위는 후보 생성과
-조회까지이며 Telegram, 이메일 등 외부 채널로 발송하지 않습니다.
+결정론적으로 만들고 SQLite에 중복 없이 기록합니다. 이메일 일간 보고서를 초기
+전달 채널로 사용하며 사용자가 `-send`를 명시한 경우에만 발송합니다.
 
 ## 실행 순서
 
@@ -19,6 +19,7 @@ JSON의 `analysis_run.id`를 사용해 알림 후보를 평가하고 저장합�
 go run ./cmd/forgetmenot alert-evaluate -run-id 1
 go run ./cmd/forgetmenot alert-list -status pending
 go run ./cmd/forgetmenot alert-list -include-payload -output json
+go run ./cmd/forgetmenot daily-email-report
 ```
 
 `alert-evaluate`는 저장된 실행이 `portfolio_brief`인지 확인하고, 저장된
@@ -45,7 +46,7 @@ go run ./cmd/forgetmenot alert-list -include-payload -output json
 - 관측값이나 평가시각이 달라져도 같은 논리적 사건은 같은 fingerprint를 씁니다.
 - 하나의 분석 실행 ID에서 같은 후보를 다시 평가해도 관측을 추가하지 않습니다.
 - 새로운 분석 실행에서 같은 사건이 다시 관측되면 기존 알림의 발생 횟수와 최근
-  관측시각을 갱신합니다.
+  관측시각을 갱신하고, 확인 완료 상태가 아니면 `pending`으로 다시 엽니다.
 - 입력이나 규칙 버전이 다르면 분석 실행 이력에서 별도로 추적할 수 있습니다.
 
 이 구조는 CLI 재시도 때문에 같은 알림이 여러 번 발송되는 일을 막기 위한 저장
@@ -54,11 +55,10 @@ go run ./cmd/forgetmenot alert-list -include-payload -output json
 ## 현재 한계
 
 - 자동 실행 스케줄러가 없습니다.
-- Telegram 및 이메일 전달 adapter가 없습니다.
-- 발송 성공, 실패, 확인 상태를 변경하는 명령이 없습니다.
-- 발송 완료 후 같은 사건이 다시 발생했을 때 재알림하는 정책이 없습니다.
+- 실제 이메일 계정으로 전송을 검증하지 않았습니다.
+- 이메일 전달 이력과 실패 재시도 횟수를 별도 저장하지 않습니다.
+- 확인 완료 상태를 변경하는 명령이 없습니다.
 - quiet hours와 심각도별 채널 정책이 없습니다.
 - 환율이 없으므로 서로 다른 통화의 포트폴리오를 합산하지 않습니다.
 
-외부 발송을 붙이기 전에 재발송 상태 전이, 민감정보 축약, 테스트 알림 구분과
-실패 재시도 한도를 먼저 정의해야 합니다.
+계정 설정과 전송 절차는 [일간 이메일 보고서](EMAIL_REPORTS.md)를 참고합니다.
