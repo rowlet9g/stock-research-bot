@@ -141,6 +141,48 @@ func (s *Store) ListAnalysisRuns(
 	return runs, nil
 }
 
+func (s *Store) AnalysisRun(
+	ctx context.Context,
+	id int64,
+) (models.AnalysisRun, error) {
+	if id <= 0 {
+		return models.AnalysisRun{}, fmt.Errorf(
+			"analysis run ID must be greater than zero",
+		)
+	}
+	row := s.db.QueryRowContext(ctx, `
+		SELECT
+			id,
+			kind,
+			status,
+			input_sha256,
+			output_sha256,
+			rule_version,
+			idempotency_key,
+			payload_json,
+			generated_at,
+			created_at
+		FROM analysis_runs
+		WHERE id = ?
+	`, id)
+	run, err := scanAnalysisRun(row)
+	if err == sql.ErrNoRows {
+		return models.AnalysisRun{}, fmt.Errorf(
+			"%w: analysis run %d",
+			ErrNotFound,
+			id,
+		)
+	}
+	if err != nil {
+		return models.AnalysisRun{}, fmt.Errorf(
+			"query analysis run %d: %w",
+			id,
+			err,
+		)
+	}
+	return run, nil
+}
+
 func (s *Store) analysisRunByIdempotencyKey(
 	ctx context.Context,
 	key string,

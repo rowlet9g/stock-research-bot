@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -68,6 +69,35 @@ func TestAnalysisRunSaveIsIdempotentAndPreservesPayload(t *testing.T) {
 			`"amount":"9223372036854775807"`,
 		) {
 		t.Fatalf("analysis payload precision was not preserved: %#v", runs)
+	}
+	loaded, err := store.AnalysisRun(ctx, first.ID)
+	if err != nil {
+		t.Fatalf("load analysis run: %v", err)
+	}
+	if loaded.ID != first.ID ||
+		loaded.InputSHA256 != first.InputSHA256 ||
+		string(loaded.Payload) != string(first.Payload) {
+		t.Fatalf("unexpected loaded analysis run: %#v", loaded)
+	}
+}
+
+func TestAnalysisRunRejectsInvalidOrMissingID(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(
+		ctx,
+		filepath.Join(t.TempDir(), "forgetmenot.db"),
+	)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer store.Close()
+
+	if _, err := store.AnalysisRun(ctx, 0); err == nil ||
+		!strings.Contains(err.Error(), "greater than zero") {
+		t.Fatalf("unexpected invalid ID error: %v", err)
+	}
+	if _, err := store.AnalysisRun(ctx, 1); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unexpected missing run error: %v", err)
 	}
 }
 
