@@ -140,22 +140,33 @@ func (s *Store) ObserveAlertCandidate(
 			SET
 				kind = ?,
 				severity = ?,
+				status = CASE
+					WHEN status = ? THEN status
+					ELSE ?
+				END,
 				title = ?,
 				fact = ?,
 				source_run_id = ?,
 				payload_json = ?,
 				occurrence_count = occurrence_count + 1,
 				last_detected_at = ?,
+				sent_at = CASE
+					WHEN status = ? THEN sent_at
+					ELSE ''
+				END,
 				updated_at = ?
 			WHERE id = ?
 		`,
 			normalized.Kind,
 			normalized.Severity,
+			models.AlertStatusAcknowledged,
+			models.AlertStatusPending,
 			normalized.Title,
 			normalized.Fact,
 			normalized.SourceRunID,
 			string(normalized.Payload),
 			normalized.DetectedAt.Format(timeFormat),
+			models.AlertStatusAcknowledged,
 			now.Format(timeFormat),
 			alertID,
 		); err != nil {
@@ -276,6 +287,69 @@ func (s *Store) ListAlerts(
 	return alerts, nil
 }
 
+func (s *Store) MarkAlertsSent(
+	ctx context.Context,
+	ids []int64,
+	sentAt time.Time,
+) error {
+	normalizedIDs, err := normalizeAlertIDs(ids)
+	if err != nil {
+		return err
+	}
+	if sentAt.IsZero() {
+		return fmt.Errorf("alert sent time is required")
+	}
+	sentAt = sentAt.UTC()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin mark alerts sent: %w", err)
+	}
+	defer tx.Rollback()
+	updatedAt := s.now().UTC()
+	for _, id := range normalizedIDs {
+		result, err := tx.ExecContext(ctx, `
+			UPDATE alerts
+			SET
+				status = ?,
+				sent_at = ?,
+				updated_at = ?
+			WHERE id = ? AND status = ?
+		`,
+			models.AlertStatusSent,
+			sentAt.Format(timeFormat),
+			updatedAt.Format(timeFormat),
+			id,
+			models.AlertStatusPending,
+		)
+		if err != nil {
+			return fmt.Errorf("mark alert %d sent: %w", id, err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf(
+				"read mark alert %d sent result: %w",
+				id,
+				err,
+			)
+		}
+		if affected != 1 {
+			status, err := alertStatusInTransaction(ctx, tx, id)
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf(
+				"alert %d must be pending to mark sent, got %q",
+				id,
+				status,
+			)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit mark alerts sent: %w", err)
+	}
+	return nil
+}
+
 func normalizeAlertCandidateInput(
 	input AlertCandidateInput,
 ) (AlertCandidateInput, string, error) {
@@ -329,6 +403,45 @@ func normalizeAlertCandidateInput(
 	input.DetectedAt = input.DetectedAt.UTC()
 	hash := sha256.Sum256(input.Payload)
 	return input, hex.EncodeToString(hash[:]), nil
+}
+
+func normalizeAlertIDs(ids []int64) ([]int64, error) {
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("at least one alert ID is required")
+	}
+	normalized := make([]int64, 0, len(ids))
+	seen := map[int64]struct{}{}
+	for _, id := range ids {
+		if id <= 0 {
+			return nil, fmt.Errorf(
+				"alert ID must be greater than zero",
+			)
+		}
+		if _, exists := seen[id]; exists {
+			return nil, fmt.Errorf("duplicate alert ID %d", id)
+		}
+		seen[id] = struct{}{}
+		normalized = append(normalized, id)
+	}
+	return normalized, nil
+}
+
+func alertStatusInTransaction(
+	ctx context.Context,
+	tx *sql.Tx,
+	id int64,
+) (models.AlertStatus, error) {
+	var status models.AlertStatus
+	if err := tx.QueryRowContext(
+		ctx,
+		`SELECT status FROM alerts WHERE id = ?`,
+		id,
+	).Scan(&status); err == sql.ErrNoRows {
+		return "", fmt.Errorf("%w: alert %d", ErrNotFound, id)
+	} else if err != nil {
+		return "", fmt.Errorf("query alert %d status: %w", id, err)
+	}
+	return status, nil
 }
 
 func alertIDByFingerprint(
