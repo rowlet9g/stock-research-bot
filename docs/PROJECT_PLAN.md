@@ -276,6 +276,9 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - 포트폴리오, Yahoo 가격, 공시와 재무정보를 결합하는 `analysis-snapshot` CLI
 - 입력 스키마·규칙 버전과 생성시각 독립 `input_sha256` 기록
 - 공급자 또는 저장 데이터 부분 실패의 격리와 `partial` 원인 기록
+- 재무 임계값, 가격 신호, 포지션·가설 품질과 공시 제목의 결정론적 위험 규칙
+- 사실, 가능한 해석, 확인 질문과 출처 증거를 분리한 위험 평가 결과
+- 규칙 설정·버전과 중복 억제용 finding fingerprint를 반환하는 `risk-assess` CLI
 
 운영 API 검증 기록:
 
@@ -302,6 +305,7 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - 삼성전자 2025 3분기 CFS에서 손익·현금흐름 누적금액과 재무상태표 시점금액 구분 확인
 - 삼성전자 실시간 가격, 거래 6건, 공시 20건과 2025 사업보고서 통합 상태 `available`
 - Intel에서 OpenDART 공시·재무 `not_requested`, 가격·포트폴리오 통합 상태 `available`
+- 삼성전자 위험 평가에서 포지션 미확인 1건과 가격 검토 신호 2건을 중복 없이 탐지
 
 완료 기준:
 

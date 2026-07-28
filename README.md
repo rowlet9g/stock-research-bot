@@ -48,6 +48,7 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - OpenDART 전체 재무제표 계정 정규화, SQLite 버전 저장과 조회
 - OpenDART 표준계정 기반 핵심 재무지표 매핑과 재무비율 계산
 - 가격, 포트폴리오, 공시와 재무정보의 버전 지정 분석 입력 스냅샷
+- 사실, 가능한 해석, 확인 질문과 출처 증거를 분리한 위험 규칙 평가
 
 ## 개발 환경 준비
 
@@ -100,6 +101,7 @@ go run ./cmd/forgetmenot dart-financial-sync -ticker 005930 -year 2025 -report-c
 go run ./cmd/forgetmenot dart-financial-list -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS -account-limit 100
 go run ./cmd/forgetmenot dart-financial-metrics -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS
 go run ./cmd/forgetmenot analysis-snapshot -ticker 005930 -output json
+go run ./cmd/forgetmenot risk-assess -ticker 005930 -output json
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -192,6 +194,21 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 메타데이터로 계산합니다. 가격 요청이나 저장 데이터 일부가 실패해도 사용 가능한
 정보는 반환하고 전체 상태를 `partial`로 표시합니다. OpenDART 기업코드가 없는
 종목은 공시와 재무정보를 정상적인 `not_requested` 상태로 둡니다.
+
+`risk-assess`는 동일한 분석 입력 스냅샷에 버전이 지정된 결정론적 규칙을 적용합니다.
+가격 신호, 재무비율과 영업현금흐름, 포지션·투자 가설의 데이터 품질, 최근 OpenDART
+공시 제목을 검토합니다. 공시 제목 일치는 사건이 확정됐다는 뜻이 아니며, 결과도
+매수·매도 지시가 아니라 아래 구조의 검토 항목입니다.
+
+- 확인된 사실
+- 가능한 해석
+- 확인 질문
+- 출처 URL, 접수번호, 계정 ID, 재무 원본 해시 등의 증거
+
+기본 임계값과 공시 조회기간은 결과의 `config`, 규칙 버전은
+`risk-rules/v1`, 중복 판정에 사용할 안정적인 식별자는 각 항목의
+`fingerprint`에 기록합니다. JSON 출력은 위험 평가와 그 평가에 사용한 전체
+스냅샷을 함께 반환합니다.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해

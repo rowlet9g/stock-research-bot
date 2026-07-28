@@ -76,6 +76,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runDARTFinancialMetrics(args[1:], stdout, stderr)
 		case "analysis-snapshot":
 			return runAnalysisSnapshot(args[1:], stdout, stderr)
+		case "risk-assess":
+			return runRiskAssessment(args[1:], stdout, stderr)
 		case "krx-instrument-sync":
 			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":

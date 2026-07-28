@@ -77,20 +77,53 @@ func runAnalysisSnapshot(
 	}
 	defer store.Close()
 
-	portfolio, err := store.Portfolio(ctx, *ticker)
+	snapshot, err := buildStoredAnalysisSnapshot(
+		ctx,
+		store,
+		*ticker,
+		*disclosureLimit,
+		*fsKind,
+		analysisSnapshotNow(),
+	)
 	if err != nil {
 		return writeRuntimeFailure(
 			*outputFormat,
 			stdout,
 			stderr,
-			"portfolio",
+			"analysis_snapshot",
+			err,
+		)
+	}
+	if *outputFormat == "json" {
+		if err := writeJSON(stdout, snapshot); err != nil {
+			return writeRuntimeFailure("text", stdout, stderr, "output", err)
+		}
+		return 0
+	}
+	writeAnalysisSnapshotText(stdout, snapshot)
+	return 0
+}
+
+func buildStoredAnalysisSnapshot(
+	ctx context.Context,
+	store *sqlitestore.Store,
+	ticker string,
+	disclosureLimit int,
+	fsKind string,
+	generatedAt time.Time,
+) (analysis.AnalysisInputSnapshot, error) {
+	portfolio, err := store.Portfolio(ctx, ticker)
+	if err != nil {
+		return analysis.AnalysisInputSnapshot{}, fmt.Errorf(
+			"load portfolio %q: %w",
+			ticker,
 			err,
 		)
 	}
 	issues := []analysis.AnalysisInputIssue{}
 
 	priceContext, cancelPrice := context.WithTimeout(
-		context.Background(),
+		ctx,
 		providerRequestTimeout,
 	)
 	price, priceErr := analysisSnapshotPrice(
@@ -150,7 +183,7 @@ func runAnalysisSnapshot(
 		storedDisclosures, disclosureErr := store.ListDARTDisclosures(
 			ctx,
 			corpCode,
-			*disclosureLimit,
+			disclosureLimit,
 		)
 		switch {
 		case disclosureErr != nil:
@@ -175,7 +208,7 @@ func runAnalysisSnapshot(
 		statement, financialErr := store.LatestCurrentDARTFinancialStatement(
 			ctx,
 			corpCode,
-			*fsKind,
+			fsKind,
 		)
 		switch {
 		case errors.Is(financialErr, sqlitestore.ErrNotFound):
@@ -205,7 +238,7 @@ func runAnalysisSnapshot(
 	}
 
 	snapshot, err := analysis.BuildAnalysisInputSnapshot(
-		analysisSnapshotNow(),
+		generatedAt,
 		analysis.AnalysisInput{
 			Portfolio:   portfolio,
 			Price:       price,
@@ -216,22 +249,12 @@ func runAnalysisSnapshot(
 		},
 	)
 	if err != nil {
-		return writeRuntimeFailure(
-			*outputFormat,
-			stdout,
-			stderr,
-			"analysis_snapshot",
+		return analysis.AnalysisInputSnapshot{}, fmt.Errorf(
+			"build analysis snapshot: %w",
 			err,
 		)
 	}
-	if *outputFormat == "json" {
-		if err := writeJSON(stdout, snapshot); err != nil {
-			return writeRuntimeFailure("text", stdout, stderr, "output", err)
-		}
-		return 0
-	}
-	writeAnalysisSnapshotText(stdout, snapshot)
-	return 0
+	return snapshot, nil
 }
 
 func writeAnalysisSnapshotText(
