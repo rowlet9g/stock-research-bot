@@ -46,6 +46,7 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 공시 접수번호 기반 중복 방지와 저장된 공시 조회
 - OpenDART 공시 원본 ZIP 검증, 파일 저장과 논리 버전 추적
 - OpenDART 전체 재무제표 계정 정규화, SQLite 버전 저장과 조회
+- OpenDART 표준계정 기반 핵심 재무지표 매핑과 재무비율 계산
 
 ## 개발 환경 준비
 
@@ -96,6 +97,7 @@ go run ./cmd/forgetmenot dart-document-sync -ticker 005930 -limit 10
 go run ./cmd/forgetmenot dart-document-list -receipt-no 20260727000099
 go run ./cmd/forgetmenot dart-financial-sync -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS
 go run ./cmd/forgetmenot dart-financial-list -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS -account-limit 100
+go run ./cmd/forgetmenot dart-financial-metrics -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -166,8 +168,16 @@ API 금액은 쉼표를 제거한 부호 포함 정수 문자열로 정규화합
 접수번호나 계정 내용이 바뀌면 이전 버전을 보존한 채 새 현재 버전을 저장합니다.
 기업 또는 연결/개별 요청 하나가 실패해도 성공한 재무제표는 저장합니다.
 
-현재 단계는 계정 원자료의 수집과 정규화입니다. 매출, 영업이익, 현금흐름 등 핵심
-계정 매핑과 증감률, 재무비율 계산은 분석 엔진 작업에서 추가합니다.
+`dart-financial-metrics`는 저장된 현재 재무제표에서 매출액, 영업이익,
+당기순이익, 자산·부채·자본총계, 유동자산·유동부채, 영업활동현금흐름을
+추출합니다. 계정명 추측은 사용하지 않고 표준 `account_id`와 BS, IS, CIS, CF
+구역을 함께 확인합니다. 같은 우선순위의 계정이 여러 개면 임의 선택하지 않고
+`ambiguous`, 계정이나 비교기간 금액이 없으면 `missing`으로 표시합니다.
+
+사업보고서는 당기와 전기 금액을, 분기·반기보고서의 손익 및 현금흐름은 누적금액을
+비교합니다. 증감률, 영업이익률, 순이익률, 부채비율과 유동비율은 정수 기반으로
+소수 둘째 자리까지 계산합니다. 전기 금액이나 비율의 분모가 0 이하이면 해석을
+강행하지 않고 `not_comparable`로 표시합니다.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해

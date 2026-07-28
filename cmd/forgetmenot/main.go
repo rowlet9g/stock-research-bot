@@ -72,6 +72,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runDARTFinancialSync(args[1:], stdout, stderr)
 		case "dart-financial-list":
 			return runDARTFinancialList(args[1:], stdout, stderr)
+		case "dart-financial-metrics":
+			return runDARTFinancialMetrics(args[1:], stdout, stderr)
 		case "krx-instrument-sync":
 			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":
