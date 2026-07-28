@@ -8,6 +8,7 @@ DART 공시/재무 정보와 Yahoo Finance 시세 데이터를 결합해 투자 
 - [거래 CSV 계약](docs/TRADE_CSV.md): 정규화 거래 형식, 중복 방지 규칙, 미래에셋 원본 매핑 상태
 - [현재 포지션 CSV](docs/POSITION_CSV.md): 확인된 잔고 스냅샷의 일괄 입력 형식과 안전 규칙
 - [포트폴리오 평가](docs/PORTFOLIO_VALUATION.md): 통화별 가치, 손익과 집중도 계산 계약
+- [포트폴리오 시나리오](docs/PORTFOLIO_SCENARIOS.md): 확률을 만들지 않는 결정론적 스트레스 테스트
 - [저장소 작업 지침](AGENTS.md): 구현, 보안, 테스트, 검증 및 Git 규칙
 - [Go 포팅 현황](README_GO.md): 현재 Go CLI 범위와 실행 방법
 
@@ -55,6 +56,7 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 거래기간 수량 순증과 저장된 현재 포지션의 읽기 전용 대조
 - 확인된 현재 포지션 CSV의 원자적이고 멱등한 일괄 저장
 - 통화별 포지션 가치, 미실현손익과 총 노출액 기준 집중도 분석
+- 입력 평가 해시와 한계를 포함하는 하락·중립·상승 시나리오 분석
 
 ## 개발 환경 준비
 
@@ -112,6 +114,7 @@ go run ./cmd/forgetmenot research-brief -ticker 005930 -question "현재 투자 
 go run ./cmd/forgetmenot position-reconcile -output json
 go run ./cmd/forgetmenot positions-import -file data/positions.csv
 go run ./cmd/forgetmenot portfolio-analyze -output json
+go run ./cmd/forgetmenot portfolio-scenarios -downside-bps -2000 -upside-bps 2000 -output json
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -253,6 +256,12 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 총 노출액 기준으로 계산합니다. 한 종목의 시세 요청이 실패해도 나머지 종목은
 계속 평가하고 실패 원인을 `partial` 결과에 남깁니다. 자세한 계산 계약은
 [포트폴리오 평가](docs/PORTFOLIO_VALUATION.md)를 참고하세요.
+
+`portfolio-scenarios`는 같은 포트폴리오 평가 결과에 하락·중립·상승 가격 충격을
+적용합니다. 기본값은 -20%, 0%, +20%이며 예측 확률은 만들지 않고
+`not_estimated`로 표시합니다. 결과는 전망이나 매매 신호가 아니라 기계적 민감도
+분석입니다. 자세한 한계와 계산식은
+[포트폴리오 시나리오](docs/PORTFOLIO_SCENARIOS.md)를 참고하세요.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해

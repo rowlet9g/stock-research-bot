@@ -38,6 +38,7 @@
 - 거래기간 수량 변화와 저장 포지션의 읽기 전용 대조
 - 확인된 현재 포지션 CSV의 원자적이고 멱등한 일괄 저장
 - 통화별 포지션 평가금액, 미실현손익과 총 노출액 기준 집중도 계산
+- 확률을 추정하지 않는 하락·중립·상승 포트폴리오 스트레스 테스트
 
 OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
 
@@ -71,6 +72,7 @@ go run ./cmd/forgetmenot research-brief -ticker 005930 -question "투자 가설�
 go run ./cmd/forgetmenot position-reconcile -output json
 go run ./cmd/forgetmenot positions-import -file data/positions.csv
 go run ./cmd/forgetmenot portfolio-analyze -output json
+go run ./cmd/forgetmenot portfolio-scenarios -output json
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
 
@@ -117,6 +119,11 @@ go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전�
 않습니다. 집중도는 통화별 총 노출액 기준이며 기본 검토·고집중 임계값은 각각
 25%, 40%입니다. 종목별 가격 수집 실패는 다른 포지션 평가와 격리됩니다. 계산
 계약은 [`docs/PORTFOLIO_VALUATION.md`](docs/PORTFOLIO_VALUATION.md)를 참고합니다.
+
+`portfolio-scenarios`는 기본 -20%, 0%, +20%의 균일 가격 충격을 평가 가능한
+포지션에 적용합니다. 입력 평가 결과의 SHA-256을 기록하고 확률은 추정하지
+않습니다. [`docs/PORTFOLIO_SCENARIOS.md`](docs/PORTFOLIO_SCENARIOS.md)에
+계산식과 한계를 정리했습니다.
 
 KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
 Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보

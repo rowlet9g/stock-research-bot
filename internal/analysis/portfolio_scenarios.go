@@ -91,6 +91,7 @@ type PortfolioScenarioReport struct {
 	GeneratedAt               time.Time                 `json:"generated_at"`
 	InputValuationVersion     string                    `json:"input_valuation_version"`
 	InputValuationGeneratedAt time.Time                 `json:"input_valuation_generated_at"`
+	InputValuationStatus      models.DataStatus         `json:"input_valuation_status"`
 	InputValuationSHA256      string                    `json:"input_valuation_sha256"`
 	CrossCurrencyAggregation  string                    `json:"cross_currency_aggregation"`
 	Config                    PortfolioScenarioConfig   `json:"config"`
@@ -141,6 +142,7 @@ func StressPortfolio(
 		GeneratedAt:               generatedAt.UTC(),
 		InputValuationVersion:     valuation.Version,
 		InputValuationGeneratedAt: valuation.GeneratedAt.UTC(),
+		InputValuationStatus:      valuation.Status,
 		InputValuationSHA256:      inputHash,
 		CrossCurrencyAggregation:  "not_performed",
 		Config:                    config,

@@ -30,6 +30,7 @@ func TestStressPortfolioBuildsDeterministicCurrencyScenarios(t *testing.T) {
 		t.Fatalf("stress portfolio: %v", err)
 	}
 	if report.Status != models.DataStatusAvailable ||
+		report.InputValuationStatus != models.DataStatusAvailable ||
 		report.Summary.IncludedPositions != 2 ||
 		report.Summary.CurrencyGroups != 2 ||
 		len(report.Scenarios) != 3 ||
