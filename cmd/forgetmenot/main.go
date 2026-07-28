@@ -78,6 +78,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runAnalysisSnapshot(args[1:], stdout, stderr)
 		case "risk-assess":
 			return runRiskAssessment(args[1:], stdout, stderr)
+		case "research-brief":
+			return runResearchBrief(args[1:], stdout, stderr)
 		case "krx-instrument-sync":
 			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":

@@ -34,6 +34,7 @@
 - OpenDART 표준계정 기반 핵심 재무지표와 재무비율 계산
 - 가격, 포트폴리오, 공시와 재무정보의 통합 분석 입력 스냅샷
 - 출처 증거와 확인 질문을 포함하는 결정론적 위험 규칙 평가
+- ChatGPT Plus에 붙여넣는 통합 리서치 브리핑 프롬프트
 
 OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
 
@@ -63,6 +64,7 @@ go run ./cmd/forgetmenot dart-financial-list -ticker 005930 -year 2025 -report-c
 go run ./cmd/forgetmenot dart-financial-metrics -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS
 go run ./cmd/forgetmenot analysis-snapshot -ticker 005930 -output json
 go run ./cmd/forgetmenot risk-assess -ticker 005930 -output json
+go run ./cmd/forgetmenot research-brief -ticker 005930 -question "투자 가설이 유효한가?" -output text
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
 
@@ -91,6 +93,10 @@ go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전�
 포지션·가설 데이터 품질, 가격 신호와 최근 공시 제목을 검토하되, 사실과 가능한
 해석 및 확인 질문을 분리합니다. 동일 사건의 `fingerprint`는 평가시각이 달라도
 유지되어 이후 중복 알림 억제에 사용할 수 있습니다.
+
+`research-brief`는 같은 입력 해시의 스냅샷과 위험 평가를 ChatGPT Plus용 프롬프트로
+구성합니다. text는 붙여넣기용 프롬프트만, JSON은 원본 스냅샷·평가·프롬프트를 함께
+반환합니다. OpenAI API를 호출하지 않습니다.
 
 KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
 Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보

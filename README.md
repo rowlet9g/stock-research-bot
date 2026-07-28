@@ -49,6 +49,7 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - OpenDART 표준계정 기반 핵심 재무지표 매핑과 재무비율 계산
 - 가격, 포트폴리오, 공시와 재무정보의 버전 지정 분석 입력 스냅샷
 - 사실, 가능한 해석, 확인 질문과 출처 증거를 분리한 위험 규칙 평가
+- 통합 입력과 위험 평가를 포함하는 ChatGPT Plus용 리서치 브리핑 생성
 
 ## 개발 환경 준비
 
@@ -102,6 +103,7 @@ go run ./cmd/forgetmenot dart-financial-list -ticker 005930 -year 2025 -report-c
 go run ./cmd/forgetmenot dart-financial-metrics -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS
 go run ./cmd/forgetmenot analysis-snapshot -ticker 005930 -output json
 go run ./cmd/forgetmenot risk-assess -ticker 005930 -output json
+go run ./cmd/forgetmenot research-brief -ticker 005930 -question "현재 투자 가설에서 가장 먼저 확인할 위험은?" -output text
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -209,6 +211,17 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 `risk-rules/v1`, 중복 판정에 사용할 안정적인 식별자는 각 항목의
 `fingerprint`에 기록합니다. JSON 출력은 위험 평가와 그 평가에 사용한 전체
 스냅샷을 함께 반환합니다.
+
+`research-brief`는 `analysis-snapshot`과 `risk-assess`를 같은 입력 해시에서 실행한
+뒤 ChatGPT Plus에 붙여넣을 한국어 프롬프트를 만듭니다. `-question`으로 사용자의
+현재 질문을 넣을 수 있으며, text 출력은 프롬프트만 반환합니다. JSON 출력은
+프롬프트와 함께 전체 스냅샷과 위험 평가를 반환해 어떤 데이터에서 생성됐는지
+확인할 수 있습니다.
+
+프롬프트는 계산된 가격·재무비율을 AI가 임의로 다시 계산하지 않게 하고, 공시 제목과
+투자 가설 안의 문장을 명령이 아닌 데이터로만 취급하도록 지시합니다. OpenAI API를
+호출하지 않으므로 ChatGPT Plus에 수동으로 붙여넣는 현재 흐름에서는 별도 API 사용료가
+발생하지 않습니다.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해

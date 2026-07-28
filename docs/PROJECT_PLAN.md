@@ -279,6 +279,9 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - 재무 임계값, 가격 신호, 포지션·가설 품질과 공시 제목의 결정론적 위험 규칙
 - 사실, 가능한 해석, 확인 질문과 출처 증거를 분리한 위험 평가 결과
 - 규칙 설정·버전과 중복 억제용 finding fingerprint를 반환하는 `risk-assess` CLI
+- 동일 입력 해시의 스냅샷과 위험 평가를 사용하는 통합 리서치 프롬프트
+- 외부 데이터 필드의 명령 취급 금지와 계산값 재추정 금지를 명시한 프롬프트 경계
+- OpenAI API 없이 ChatGPT Plus에 붙여넣는 `research-brief` CLI
 
 운영 API 검증 기록:
 
@@ -306,6 +309,7 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - 삼성전자 실시간 가격, 거래 6건, 공시 20건과 2025 사업보고서 통합 상태 `available`
 - Intel에서 OpenDART 공시·재무 `not_requested`, 가격·포트폴리오 통합 상태 `available`
 - 삼성전자 위험 평가에서 포지션 미확인 1건과 가격 검토 신호 2건을 중복 없이 탐지
+- 삼성전자 입력 해시, 재무 출처, 공시 URL과 위험 질문을 포함한 브리핑 생성 확인
 
 완료 기준:
 
@@ -442,7 +446,7 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 1. SEC ticker와 CIK mapping, submissions 및 company facts를 수집한다.
 2. KRX 상장주식과 지수의 일별 시계열을 추가해 Yahoo 가격을 교차 검증한다.
 3. FRED 금리, 물가, 고용과 경기 시계열을 추가한다.
-4. 공시 위험 규칙, 포트폴리오 위험 규칙과 시나리오 분석을 구현한다.
+4. 포트폴리오 전체 집중도와 상승·중립·하락 시나리오 분석을 구현한다.
 5. 수집 스케줄러와 Telegram 또는 이메일 알림을 구현한다.
 6. 읽기 전용 Go HTTP API와 ChatGPT Actions 기반 대화형 분석을 구현한다.
 7. 전용 UI와 예측 사후 검증은 위 단계가 안정화된 뒤 진행한다.
