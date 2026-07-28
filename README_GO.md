@@ -42,6 +42,8 @@
 - 확률을 추정하지 않는 하락·중립·상승 포트폴리오 스트레스 테스트
 - 20·60일 수익률과 연율화 변동성, 6개월 최대 낙폭 및 거래량 배수
 - 계산 근거와 중앙 설정 임계값을 포함하는 가격 위험 신호
+- 해시 기반 분석 실행 이력과 명시적 포트폴리오 브리핑 저장
+- 포트폴리오 집중도 및 데이터 품질 알림 후보의 중복 억제 저장과 조회
 
 OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
 
@@ -79,6 +81,8 @@ go run ./cmd/forgetmenot portfolio-scenarios -output json
 go run ./cmd/forgetmenot portfolio-brief -question "포트폴리오의 가장 큰 위험은?" -output text
 go run ./cmd/forgetmenot portfolio-brief -save -output json
 go run ./cmd/forgetmenot analysis-run-list -kind portfolio_brief
+go run ./cmd/forgetmenot alert-evaluate -run-id 1
+go run ./cmd/forgetmenot alert-list -status pending
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
 
@@ -138,6 +142,12 @@ JSON 출력에서는 원본 평가·시나리오와 프롬프트 해시를 함�
 `portfolio-brief -save`는 입력·규칙·출력 해시와 전체 JSON을 `analysis_runs`에
 멱등 저장합니다. 저장은 명시적으로 요청한 경우에만 수행하며
 [`docs/ANALYSIS_RUNS.md`](docs/ANALYSIS_RUNS.md)에 조회와 보안 정책을 정리했습니다.
+
+`alert-evaluate`는 저장된 포트폴리오 브리핑의 입력·출력 해시를 검증한 뒤 집중도와
+데이터 품질 사건을 `alerts`와 `alert_observations`에 저장합니다. 동일 분석 실행의
+재평가는 중복 관측으로 세지 않으며 `alert-list`로 조회합니다. 외부 채널 발송은
+아직 구현하지 않았고 [`docs/ALERTS.md`](docs/ALERTS.md)에 현재 규칙과 한계를
+정리했습니다.
 
 KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
 Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보

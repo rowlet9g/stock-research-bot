@@ -11,6 +11,7 @@ DART 공시/재무 정보와 Yahoo Finance 시세 데이터를 결합해 투자 
 - [포트폴리오 시나리오](docs/PORTFOLIO_SCENARIOS.md): 확률을 만들지 않는 결정론적 스트레스 테스트
 - [가격 지표](docs/PRICE_METRICS.md): 수익률, 변동성, 낙폭과 거래량 신호 계산 계약
 - [분석 실행 이력](docs/ANALYSIS_RUNS.md): 입력·규칙·출력 해시 기반 SQLite 이력
+- [알림 후보](docs/ALERTS.md): 포트폴리오 사건 판정, 중복 억제와 미구현 발송 범위
 - [저장소 작업 지침](AGENTS.md): 구현, 보안, 테스트, 검증 및 Git 규칙
 - [Go 포팅 현황](README_GO.md): 현재 Go CLI 범위와 실행 방법
 
@@ -62,6 +63,8 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 입력 평가 해시와 한계를 포함하는 하락·중립·상승 시나리오 분석
 - 20·60일 수익률과 연율화 변동성, 6개월 최대 낙폭 및 거래량 배수
 - 실측값, 임계값과 계산식을 포함하는 가격 위험 신호
+- 입력·규칙·출력 해시를 보존하는 분석 실행 이력
+- 집중도와 데이터 품질 알림 후보의 결정론적 생성 및 중복 억제 저장
 
 ## 개발 환경 준비
 
@@ -123,6 +126,8 @@ go run ./cmd/forgetmenot portfolio-scenarios -downside-bps -2000 -upside-bps 200
 go run ./cmd/forgetmenot portfolio-brief -question "가장 먼저 확인할 집중 위험은?" -output text
 go run ./cmd/forgetmenot portfolio-brief -save -output json
 go run ./cmd/forgetmenot analysis-run-list -kind portfolio_brief
+go run ./cmd/forgetmenot alert-evaluate -run-id 1
+go run ./cmd/forgetmenot alert-list -status pending
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -280,6 +285,12 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 같은 입력·규칙·출력은 중복 저장하지 않으며 `analysis-run-list`로 해시와 원본
 payload를 조회할 수 있습니다. 자세한 정책은
 [분석 실행 이력](docs/ANALYSIS_RUNS.md)을 참고하세요.
+
+`alert-evaluate`는 저장된 `portfolio_brief` 실행의 payload와 해시를 검증하고
+집중도, 평가 불가, 취득원가 누락과 현재 포지션 누락을 알림 후보로 저장합니다.
+같은 분석 실행을 다시 평가해도 발생 횟수를 늘리지 않으며 `alert-list`에서 상태별로
+조회할 수 있습니다. 현재는 후보 생성과 저장까지만 구현됐고 자동 실행이나 외부
+발송은 하지 않습니다. 규칙과 한계는 [알림 후보](docs/ALERTS.md)를 참고하세요.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해
