@@ -41,6 +41,7 @@ func DefaultPortfolioValuationConfig() PortfolioValuationConfig {
 type PortfolioValuationInput struct {
 	Portfolio models.PortfolioRecord
 	Price     models.PriceSnapshot
+	Issues    []PortfolioValuationIssue
 }
 
 type PortfolioValuationIssue struct {
@@ -274,9 +275,17 @@ func valuePortfolioPosition(
 		Instrument:    input.Portfolio.Instrument,
 		Status:        models.DataStatusAvailable,
 		Concentration: ConcentrationNotApplicable,
-		Issues:        []PortfolioValuationIssue{},
+		Issues:        append([]PortfolioValuationIssue(nil), input.Issues...),
 	}
 	ticker := input.Portfolio.Instrument.Ticker
+	for index := range item.Issues {
+		if strings.TrimSpace(item.Issues[index].Ticker) == "" {
+			item.Issues[index].Ticker = ticker
+		}
+	}
+	if len(item.Issues) > 0 {
+		item.Status = models.DataStatusPartial
+	}
 	if input.Portfolio.Position == nil {
 		item.Status = models.DataStatusUnavailable
 		item.Issues = append(item.Issues, PortfolioValuationIssue{

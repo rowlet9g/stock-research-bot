@@ -98,6 +98,12 @@ func TestValuePortfolioPreservesUnknownAndPartialStates(t *testing.T) {
 		20,
 		generatedAt,
 	)
+	unknownCost.Issues = []PortfolioValuationIssue{
+		{
+			Kind:    "partial_data",
+			Message: "fixture warning",
+		},
+	}
 	report, err := ValuePortfolio(
 		[]PortfolioValuationInput{
 			missingPosition,
@@ -119,7 +125,9 @@ func TestValuePortfolioPreservesUnknownAndPartialStates(t *testing.T) {
 	noCost := positionValuation(t, report, "NOCOST")
 	if noCost.Status != models.DataStatusPartial ||
 		noCost.MarketValue != "40" ||
-		noCost.CostBasisUnits != nil {
+		noCost.CostBasisUnits != nil ||
+		len(noCost.Issues) != 2 ||
+		noCost.Issues[0].Ticker != "NOCOST" {
 		t.Fatalf("unexpected missing cost valuation: %#v", noCost)
 	}
 	usd := currencyValuation(t, report, "USD")

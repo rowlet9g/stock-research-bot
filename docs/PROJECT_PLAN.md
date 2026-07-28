@@ -287,6 +287,9 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - 지원하지 않는 거래 유형과 역산 기초잔고를 명시하는 `position-reconcile` CLI
 - 현재 포지션 CSV의 전체 검증과 단일 트랜잭션 일괄 저장
 - 동일 포지션 스냅샷 재입력 시 불필요한 갱신을 막는 멱등 `positions-import` CLI
+- 고정소수점 기반 통화별 평가금액, 원가와 미실현손익 계산
+- 롱·숏 총 노출액 기준 집중도와 임계값 설정을 반환하는 버전 지정 평가 엔진
+- 종목별 Yahoo 실패를 격리하고 환율 없는 통화 합산을 금지하는 `portfolio-analyze` CLI
 
 운영 API 검증 기록:
 

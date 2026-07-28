@@ -6,6 +6,8 @@ DART 공시/재무 정보와 Yahoo Finance 시세 데이터를 결합해 투자 
 
 - [프로젝트 계획](docs/PROJECT_PLAN.md): 목표 아키텍처, 데이터 정책, 단계별 로드맵과 완료 기준
 - [거래 CSV 계약](docs/TRADE_CSV.md): 정규화 거래 형식, 중복 방지 규칙, 미래에셋 원본 매핑 상태
+- [현재 포지션 CSV](docs/POSITION_CSV.md): 확인된 잔고 스냅샷의 일괄 입력 형식과 안전 규칙
+- [포트폴리오 평가](docs/PORTFOLIO_VALUATION.md): 통화별 가치, 손익과 집중도 계산 계약
 - [저장소 작업 지침](AGENTS.md): 구현, 보안, 테스트, 검증 및 Git 규칙
 - [Go 포팅 현황](README_GO.md): 현재 Go CLI 범위와 실행 방법
 
@@ -51,6 +53,8 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 사실, 가능한 해석, 확인 질문과 출처 증거를 분리한 위험 규칙 평가
 - 통합 입력과 위험 평가를 포함하는 ChatGPT Plus용 리서치 브리핑 생성
 - 거래기간 수량 순증과 저장된 현재 포지션의 읽기 전용 대조
+- 확인된 현재 포지션 CSV의 원자적이고 멱등한 일괄 저장
+- 통화별 포지션 가치, 미실현손익과 총 노출액 기준 집중도 분석
 
 ## 개발 환경 준비
 
@@ -107,6 +111,7 @@ go run ./cmd/forgetmenot risk-assess -ticker 005930 -output json
 go run ./cmd/forgetmenot research-brief -ticker 005930 -question "현재 투자 가설에서 가장 먼저 확인할 위험은?" -output text
 go run ./cmd/forgetmenot position-reconcile -output json
 go run ./cmd/forgetmenot positions-import -file data/positions.csv
+go run ./cmd/forgetmenot portfolio-analyze -output json
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -241,6 +246,13 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 아무 행도 반영하지 않으며, 같은 내용을 다시 가져와도 갱신 시각을 바꾸지 않습니다.
 거래내역이나 `position-reconcile` 결과로 현재 포지션을 자동 생성하지 않습니다.
 입력 형식과 안전 규칙은 [현재 포지션 CSV 형식](docs/POSITION_CSV.md)을 참고하세요.
+
+`portfolio-analyze`는 저장된 현재 포지션에 Yahoo 가격을 결합해 평가금액과
+미실현손익을 계산합니다. 환율 데이터가 없는 통화를 합치지 않고 KRW, USD처럼
+통화별 결과만 제공하며, 롱·숏 상계로 위험이 작아 보이지 않도록 집중도는 통화별
+총 노출액 기준으로 계산합니다. 한 종목의 시세 요청이 실패해도 나머지 종목은
+계속 평가하고 실패 원인을 `partial` 결과에 남깁니다. 자세한 계산 계약은
+[포트폴리오 평가](docs/PORTFOLIO_VALUATION.md)를 참고하세요.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해
