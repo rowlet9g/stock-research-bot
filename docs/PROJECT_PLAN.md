@@ -294,6 +294,8 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - 균일 가격 충격의 롱·숏 방향을 보존하는 `portfolio-scenarios` CLI
 - 20·60일 수익률과 연율화 변동성, 6개월 최대 낙폭 및 거래량 배수
 - 중앙 설정 임계값과 계산 증거를 반환하는 가격 신호 규칙 v2
+- 동일 평가 해시의 집중도와 시나리오를 묶는 포트폴리오 리서치 프롬프트
+- OpenAI API 없이 ChatGPT Plus에 붙여넣는 `portfolio-brief` CLI
 
 운영 API 검증 기록:
 

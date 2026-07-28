@@ -34,23 +34,16 @@ func runPortfolioScenarios(
 		return exitCode
 	}
 	*ticker = strings.TrimSpace(*ticker)
-	switch {
-	case *workers < 1 || *workers > 16:
+	if err := validatePortfolioScenarioFlags(
+		*workers,
+		*downsideBPS,
+		*upsideBPS,
+	); err != nil {
 		return commandInputError(
 			*outputFormat,
 			stdout,
 			stderr,
-			"workers must be between 1 and 16",
-		)
-	case *downsideBPS < -10000 ||
-		*downsideBPS >= 0 ||
-		*upsideBPS <= 0 ||
-		*upsideBPS > 100000:
-		return commandInputError(
-			*outputFormat,
-			stdout,
-			stderr,
-			"scenario returns must satisfy -10000 <= downside-bps < 0 < upside-bps <= 100000",
+			err.Error(),
 		)
 	}
 
@@ -169,5 +162,25 @@ func writePortfolioScenariosText(
 			issue.Kind,
 			issue.Message,
 		)
+	}
+}
+
+func validatePortfolioScenarioFlags(
+	workers int,
+	downsideBPS int64,
+	upsideBPS int64,
+) error {
+	switch {
+	case workers < 1 || workers > 16:
+		return fmt.Errorf("workers must be between 1 and 16")
+	case downsideBPS < -10000 ||
+		downsideBPS >= 0 ||
+		upsideBPS <= 0 ||
+		upsideBPS > 100000:
+		return fmt.Errorf(
+			"scenario returns must satisfy -10000 <= downside-bps < 0 < upside-bps <= 100000",
+		)
+	default:
+		return nil
 	}
 }

@@ -93,7 +93,11 @@ func BuildPortfolioResearchBrief(
 	writePortfolioBriefCurrencies(&builder, input.Valuation)
 	writePortfolioBriefPositions(&builder, input.Valuation)
 	writePortfolioBriefScenarios(&builder, input.Scenarios)
-	writePortfolioBriefIssues(&builder, input.Valuation)
+	writePortfolioBriefIssues(
+		&builder,
+		input.Valuation,
+		input.Scenarios,
+	)
 
 	question := sanitizePromptData(input.UserQuestion)
 	if question == "" {
@@ -201,12 +205,20 @@ func writePortfolioBriefPositions(
 ) {
 	fmt.Fprintln(builder, "종목별 평가 사실:")
 	for _, position := range valuation.Positions {
+		currency := strings.TrimSpace(position.Currency)
+		if currency == "" {
+			currency = strings.TrimSpace(position.Instrument.Currency)
+		}
+		weight := "N/A"
+		if strings.TrimSpace(position.WeightPct) != "" {
+			weight = position.WeightPct + "%"
+		}
 		fmt.Fprintf(
 			builder,
-			"- %s (%s, %s): 상태=%s, 수량=%s, 평균단가=%s, 최근가격=%s, 평가금액=%s, 총노출=%s, 미실현손익=%s, 통화내비중=%s%%, 집중도=%s",
+			"- %s (%s, %s): 상태=%s, 수량=%s, 평균단가=%s, 최근가격=%s, 평가금액=%s, 총노출=%s, 미실현손익=%s, 통화내비중=%s, 집중도=%s",
 			sanitizePromptData(position.Instrument.Name),
 			sanitizePromptData(position.Instrument.Ticker),
-			sanitizePromptData(position.Currency),
+			sanitizePromptData(currency),
 			position.Status,
 			valueOrNA(position.Quantity),
 			valueOrNA(position.AverageCost),
@@ -214,7 +226,7 @@ func writePortfolioBriefPositions(
 			valueOrNA(position.MarketValue),
 			valueOrNA(position.GrossMarketValue),
 			valueOrNA(position.UnrealizedPL),
-			valueOrNA(position.WeightPct),
+			weight,
 			position.Concentration,
 		)
 		if position.AsOf != nil {
@@ -304,12 +316,19 @@ func writePortfolioBriefScenarios(
 func writePortfolioBriefIssues(
 	builder *strings.Builder,
 	valuation analysis.PortfolioValuationReport,
+	scenarios analysis.PortfolioScenarioReport,
 ) {
 	fmt.Fprintln(builder, "전체 데이터 문제:")
-	if len(valuation.Issues) == 0 {
+	if len(valuation.Issues) == 0 && len(scenarios.Issues) == 0 {
 		fmt.Fprintln(builder, "- 없음")
 	} else {
+		seen := make(map[string]struct{}, len(valuation.Issues))
 		for _, issue := range valuation.Issues {
+			seen[portfolioBriefIssueKey(
+				issue.Ticker,
+				issue.Kind,
+				issue.Message,
+			)] = struct{}{}
 			fmt.Fprintf(
 				builder,
 				"- ticker=%s, kind=%s, message=%s\n",
@@ -318,6 +337,36 @@ func writePortfolioBriefIssues(
 				sanitizePromptData(issue.Message),
 			)
 		}
+		for _, issue := range scenarios.Issues {
+			key := portfolioBriefIssueKey(
+				issue.Ticker,
+				issue.Kind,
+				issue.Message,
+			)
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			fmt.Fprintf(
+				builder,
+				"- scenario ticker=%s, kind=%s, message=%s\n",
+				valueOrNA(sanitizePromptData(issue.Ticker)),
+				sanitizePromptData(issue.Kind),
+				sanitizePromptData(issue.Message),
+			)
+		}
 	}
 	fmt.Fprintln(builder)
+}
+
+func portfolioBriefIssueKey(
+	ticker string,
+	kind string,
+	message string,
+) string {
+	return strings.ToUpper(strings.TrimSpace(ticker)) +
+		"\x1f" +
+		strings.TrimSpace(kind) +
+		"\x1f" +
+		strings.TrimSpace(message)
 }

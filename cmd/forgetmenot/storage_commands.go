@@ -792,6 +792,7 @@ func writeCommandHelp(output io.Writer) {
 	fmt.Fprintln(output, "  positions-import Import current position snapshots from CSV")
 	fmt.Fprintln(output, "  portfolio-analyze Value positions and calculate currency-level concentration")
 	fmt.Fprintln(output, "  portfolio-scenarios Run deterministic downside, neutral, and upside stress tests")
+	fmt.Fprintln(output, "  portfolio-brief Generate a ChatGPT Plus portfolio research prompt")
 	fmt.Fprintln(output, "  krx-instrument-sync Sync KRX instrument identifiers and classifications")
 	fmt.Fprintln(output, "  position-set     Store the current position snapshot")
 	fmt.Fprintln(output, "  thesis-set       Store the current investment thesis")

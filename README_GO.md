@@ -35,6 +35,7 @@
 - 가격, 포트폴리오, 공시와 재무정보의 통합 분석 입력 스냅샷
 - 출처 증거와 확인 질문을 포함하는 결정론적 위험 규칙 평가
 - ChatGPT Plus에 붙여넣는 통합 리서치 브리핑 프롬프트
+- 포트폴리오 평가와 시나리오를 묶는 전체 리서치 프롬프트
 - 거래기간 수량 변화와 저장 포지션의 읽기 전용 대조
 - 확인된 현재 포지션 CSV의 원자적이고 멱등한 일괄 저장
 - 통화별 포지션 평가금액, 미실현손익과 총 노출액 기준 집중도 계산
@@ -75,6 +76,7 @@ go run ./cmd/forgetmenot position-reconcile -output json
 go run ./cmd/forgetmenot positions-import -file data/positions.csv
 go run ./cmd/forgetmenot portfolio-analyze -output json
 go run ./cmd/forgetmenot portfolio-scenarios -output json
+go run ./cmd/forgetmenot portfolio-brief -question "포트폴리오의 가장 큰 위험은?" -output text
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
 
@@ -126,6 +128,10 @@ go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전�
 포지션에 적용합니다. 입력 평가 결과의 SHA-256을 기록하고 확률은 추정하지
 않습니다. [`docs/PORTFOLIO_SCENARIOS.md`](docs/PORTFOLIO_SCENARIOS.md)에
 계산식과 한계를 정리했습니다.
+
+`portfolio-brief`는 동일 가격 입력에서 평가와 시나리오를 한 번에 생성하고 입력
+SHA-256을 검증한 뒤 ChatGPT Plus용 프롬프트를 출력합니다. API를 호출하지 않으며
+JSON 출력에서는 원본 평가·시나리오와 프롬프트 해시를 함께 확인할 수 있습니다.
 
 KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
 Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보

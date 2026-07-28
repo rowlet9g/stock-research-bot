@@ -54,6 +54,7 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 가격, 포트폴리오, 공시와 재무정보의 버전 지정 분석 입력 스냅샷
 - 사실, 가능한 해석, 확인 질문과 출처 증거를 분리한 위험 규칙 평가
 - 통합 입력과 위험 평가를 포함하는 ChatGPT Plus용 리서치 브리핑 생성
+- 포트폴리오 평가·시나리오를 포함하는 ChatGPT Plus용 전체 브리핑 생성
 - 거래기간 수량 순증과 저장된 현재 포지션의 읽기 전용 대조
 - 확인된 현재 포지션 CSV의 원자적이고 멱등한 일괄 저장
 - 통화별 포지션 가치, 미실현손익과 총 노출액 기준 집중도 분석
@@ -118,6 +119,7 @@ go run ./cmd/forgetmenot position-reconcile -output json
 go run ./cmd/forgetmenot positions-import -file data/positions.csv
 go run ./cmd/forgetmenot portfolio-analyze -output json
 go run ./cmd/forgetmenot portfolio-scenarios -downside-bps -2000 -upside-bps 2000 -output json
+go run ./cmd/forgetmenot portfolio-brief -question "가장 먼저 확인할 집중 위험은?" -output text
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -265,6 +267,11 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 `not_estimated`로 표시합니다. 결과는 전망이나 매매 신호가 아니라 기계적 민감도
 분석입니다. 자세한 한계와 계산식은
 [포트폴리오 시나리오](docs/PORTFOLIO_SCENARIOS.md)를 참고하세요.
+
+`portfolio-brief`는 한 번 수집한 가격으로 포트폴리오 평가와 시나리오를 만들고,
+두 결과의 입력 해시가 일치할 때만 ChatGPT Plus용 프롬프트를 생성합니다. text는
+붙여넣을 프롬프트만 출력하고 JSON은 평가, 시나리오, 프롬프트와 각 해시를 함께
+반환합니다. OpenAI API를 호출하지 않습니다.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해
