@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type DataStatus string
 
@@ -234,4 +237,17 @@ type PortfolioRecord struct {
 	Position   *Position  `json:"position,omitempty"`
 	Trades     []Trade    `json:"trades"`
 	Thesis     *Thesis    `json:"thesis,omitempty"`
+}
+
+type AnalysisRun struct {
+	ID             int64           `json:"id"`
+	Kind           string          `json:"kind"`
+	Status         DataStatus      `json:"status"`
+	InputSHA256    string          `json:"input_sha256"`
+	OutputSHA256   string          `json:"output_sha256"`
+	RuleVersion    string          `json:"rule_version"`
+	IdempotencyKey string          `json:"idempotency_key"`
+	Payload        json.RawMessage `json:"payload"`
+	GeneratedAt    time.Time       `json:"generated_at"`
+	CreatedAt      time.Time       `json:"created_at"`
 }
