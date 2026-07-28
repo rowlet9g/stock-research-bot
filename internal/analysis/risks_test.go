@@ -128,6 +128,38 @@ func TestEvaluateRiskSnapshotIgnoresOldDisclosure(t *testing.T) {
 	}
 }
 
+func TestEvaluateRiskSnapshotKeepsPriceCalculationEvidence(t *testing.T) {
+	evaluatedAt := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
+	input := completeAnalysisInput()
+	volatility := 55.0
+	input.Price.AnnualizedVolatilityPct20D = &volatility
+	input.Signals = EvaluatePriceSnapshot(input.Price)
+	snapshot, err := BuildAnalysisInputSnapshot(evaluatedAt, input)
+	if err != nil {
+		t.Fatalf("build analysis snapshot: %v", err)
+	}
+	assessment, err := EvaluateRiskSnapshot(
+		snapshot,
+		evaluatedAt,
+		DefaultRiskRuleConfig(),
+	)
+	if err != nil {
+		t.Fatalf("evaluate risk snapshot: %v", err)
+	}
+	finding := riskFindingByRuleID(
+		t,
+		assessment.Findings,
+		"price.volatility_20d_high",
+	)
+	if len(finding.Evidence) != 1 ||
+		finding.Evidence[0].Field !=
+			"annualized_volatility_pct_20d" ||
+		finding.Evidence[0].Threshold != "40.0000" ||
+		finding.Evidence[0].Formula == "" {
+		t.Fatalf("price calculation evidence was lost: %#v", finding)
+	}
+}
+
 func TestEvaluateRiskSnapshotCreatesStableFindingFingerprints(t *testing.T) {
 	evaluatedAt := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
 	input := completeAnalysisInput()

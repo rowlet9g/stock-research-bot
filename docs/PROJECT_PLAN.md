@@ -292,6 +292,8 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - 종목별 Yahoo 실패를 격리하고 환율 없는 통화 합산을 금지하는 `portfolio-analyze` CLI
 - 입력 평가 해시와 확률 미추정 정책을 기록하는 결정론적 시나리오 엔진
 - 균일 가격 충격의 롱·숏 방향을 보존하는 `portfolio-scenarios` CLI
+- 20·60일 수익률과 연율화 변동성, 6개월 최대 낙폭 및 거래량 배수
+- 중앙 설정 임계값과 계산 증거를 반환하는 가격 신호 규칙 v2
 
 운영 API 검증 기록:
 

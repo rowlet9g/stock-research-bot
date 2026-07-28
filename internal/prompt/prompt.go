@@ -69,9 +69,17 @@ Yahoo ticker: %s
 가격 출처: %s
 현재가: %s
 1일 변동률(%%): %s
+20일 수익률(%%): %s
+60일 수익률(%%): %s
+20일 연율화 변동성(%%): %s
+60일 연율화 변동성(%%): %s
+6개월 최대 낙폭(%%): %s
 20일 이동평균: %s
 60일 이동평균: %s
 거래량: %s
+직전 20일 평균 거래량: %s
+최근 거래량 배수: %s
+가격 지표 버전: %s
 
 가격 신호:
 %s
@@ -101,9 +109,17 @@ Yahoo ticker: %s
 		valueOrNA(input.Snapshot.Source.SourceURL),
 		formatFloat(input.Snapshot.LastPrice),
 		formatFloat(input.Snapshot.ChangePct1D),
+		formatFloat(input.Snapshot.ReturnPct20D),
+		formatFloat(input.Snapshot.ReturnPct60D),
+		formatFloat(input.Snapshot.AnnualizedVolatilityPct20D),
+		formatFloat(input.Snapshot.AnnualizedVolatilityPct60D),
+		formatFloat(input.Snapshot.MaxDrawdownPct6M),
 		formatFloat(input.Snapshot.MA20),
 		formatFloat(input.Snapshot.MA60),
 		formatInt(input.Snapshot.Volume),
+		formatFloat(input.Snapshot.PreviousAverageVolume20D),
+		formatFloat(input.Snapshot.VolumeRatio20D),
+		valueOrNA(input.Snapshot.MetricVersion),
 		strings.Join(signalLines, "\n"),
 		input.Disclosures.Status,
 		formatObservedAt(input.Disclosures.Source.ObservedAt),

@@ -176,8 +176,32 @@ func writeResearchPrice(
 		"- 1일 변동률: %s\n",
 		formatPromptFloatUnit(price.ChangePct1D, "%"),
 	)
+	fmt.Fprintf(
+		builder,
+		"- 20일/60일 수익률: %s / %s\n",
+		formatPromptFloatUnit(price.ReturnPct20D, "%"),
+		formatPromptFloatUnit(price.ReturnPct60D, "%"),
+	)
+	fmt.Fprintf(
+		builder,
+		"- 20일/60일 연율화 변동성: %s / %s\n",
+		formatPromptFloatUnit(price.AnnualizedVolatilityPct20D, "%"),
+		formatPromptFloatUnit(price.AnnualizedVolatilityPct60D, "%"),
+	)
+	fmt.Fprintf(
+		builder,
+		"- 6개월 최대 낙폭: %s\n",
+		formatPromptFloatUnit(price.MaxDrawdownPct6M, "%"),
+	)
 	fmt.Fprintf(builder, "- 20일/60일 이동평균: %s / %s\n", formatFloat(price.MA20), formatFloat(price.MA60))
 	fmt.Fprintf(builder, "- 거래량: %s\n", formatInt(price.Volume))
+	fmt.Fprintf(
+		builder,
+		"- 직전 20일 평균 거래량/최근 배수: %s / %s\n",
+		formatFloat(price.PreviousAverageVolume20D),
+		formatPromptFloatUnit(price.VolumeRatio20D, "x"),
+	)
+	fmt.Fprintf(builder, "- 가격 지표 버전: %s\n", valueOrNA(price.MetricVersion))
 	fmt.Fprintf(builder, "- 기준시각: %s\n", formatObservedAt(price.Source.ObservedAt))
 	fmt.Fprintf(builder, "- 수집시각: %s\n", formatFetchedAt(price.Source.FetchedAt))
 	fmt.Fprintf(builder, "- 출처: %s\n", valueOrNA(price.Source.SourceURL))
@@ -188,11 +212,24 @@ func writeResearchPrice(
 		for _, signal := range snapshot.Signals {
 			fmt.Fprintf(
 				builder,
-				"  - [%s] %s: %s\n",
+				"  - [%s] rule=%s %s: %s\n",
 				signal.Level,
+				sanitizePromptData(signal.RuleID),
 				sanitizePromptData(signal.Title),
 				sanitizePromptData(signal.Detail),
 			)
+			for _, evidence := range signal.Evidence {
+				fmt.Fprintf(
+					builder,
+					"    - metric=%s value=%s%s comparison=%s threshold=%s formula=%s\n",
+					sanitizePromptData(evidence.Metric),
+					sanitizePromptData(evidence.Value),
+					sanitizePromptData(evidence.Unit),
+					sanitizePromptData(evidence.Comparison),
+					sanitizePromptData(evidence.Threshold),
+					sanitizePromptData(evidence.Formula),
+				)
+			}
 		}
 	}
 	fmt.Fprintln(builder)

@@ -329,9 +329,36 @@ func writeText(output io.Writer, result cliResult) {
 	fmt.Fprintf(output, "Source: %s\n", valueOrNA(result.Price.Source.SourceURL))
 	fmt.Fprintf(output, "Last price: %s\n", formatFloat(result.Price.LastPrice))
 	fmt.Fprintf(output, "1D change: %s%%\n", formatFloat(result.Price.ChangePct1D))
+	fmt.Fprintf(output, "20D return: %s%%\n", formatFloat(result.Price.ReturnPct20D))
+	fmt.Fprintf(output, "60D return: %s%%\n", formatFloat(result.Price.ReturnPct60D))
+	fmt.Fprintf(
+		output,
+		"20D annualized volatility: %s%%\n",
+		formatFloat(result.Price.AnnualizedVolatilityPct20D),
+	)
+	fmt.Fprintf(
+		output,
+		"60D annualized volatility: %s%%\n",
+		formatFloat(result.Price.AnnualizedVolatilityPct60D),
+	)
+	fmt.Fprintf(
+		output,
+		"6M max drawdown: %s%%\n",
+		formatFloat(result.Price.MaxDrawdownPct6M),
+	)
 	fmt.Fprintf(output, "MA20: %s\n", formatFloat(result.Price.MA20))
 	fmt.Fprintf(output, "MA60: %s\n", formatFloat(result.Price.MA60))
-	fmt.Fprintf(output, "Volume: %s\n\n", formatInt(result.Price.Volume))
+	fmt.Fprintf(output, "Volume: %s\n", formatInt(result.Price.Volume))
+	fmt.Fprintf(
+		output,
+		"Previous 20D average volume: %s\n",
+		formatFloat(result.Price.PreviousAverageVolume20D),
+	)
+	fmt.Fprintf(
+		output,
+		"20D volume ratio: %s\n\n",
+		formatFloat(result.Price.VolumeRatio20D),
+	)
 
 	fmt.Fprintln(output, "Signals:")
 	if len(result.Signals) == 0 {

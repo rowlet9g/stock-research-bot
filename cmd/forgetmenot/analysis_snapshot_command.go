@@ -289,10 +289,15 @@ func writeAnalysisSnapshotText(
 	)
 	fmt.Fprintf(
 		output,
-		"Price: status=%s yahoo_ticker=%s last=%s observed_at=%s\n",
+		"Price: status=%s metrics=%s yahoo_ticker=%s last=%s return_20d=%s volatility_20d=%s drawdown_6m=%s volume_ratio_20d=%s observed_at=%s\n",
 		snapshot.Price.Status,
+		valueOrNA(snapshot.Price.MetricVersion),
 		snapshot.Price.YahooTicker,
 		formatOptionalFloat(snapshot.Price.LastPrice),
+		formatOptionalFloat(snapshot.Price.ReturnPct20D),
+		formatOptionalFloat(snapshot.Price.AnnualizedVolatilityPct20D),
+		formatOptionalFloat(snapshot.Price.MaxDrawdownPct6M),
+		formatOptionalFloat(snapshot.Price.VolumeRatio20D),
 		formatObservedAt(snapshot.Price.Source.ObservedAt),
 	)
 	fmt.Fprintf(

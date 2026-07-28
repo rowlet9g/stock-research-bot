@@ -14,7 +14,7 @@ import (
 	"github.com/rowlet9g/stock-research-bot/internal/models"
 )
 
-const RiskRuleSetVersion = "risk-rules/v1"
+const RiskRuleSetVersion = "risk-rules/v2"
 
 type RiskSeverity string
 
@@ -39,6 +39,9 @@ type RiskEvidence struct {
 	Field         string     `json:"field"`
 	Value         string     `json:"value"`
 	Unit          string     `json:"unit,omitempty"`
+	Comparison    string     `json:"comparison,omitempty"`
+	Threshold     string     `json:"threshold,omitempty"`
+	Formula       string     `json:"formula,omitempty"`
 	SourceURL     string     `json:"source_url,omitempty"`
 	ObservedAt    *time.Time `json:"observed_at,omitempty"`
 	ReceiptNo     string     `json:"receipt_no,omitempty"`
@@ -195,12 +198,39 @@ func evaluatePriceSignalRisks(
 			continue
 		}
 		observedAt := snapshot.Price.Source.ObservedAt
-		identity := signal.Title
+		ruleID := strings.TrimSpace(signal.RuleID)
+		if ruleID == "" {
+			ruleID = "price.signal"
+		}
+		identity := ruleID
 		if observedAt != nil {
 			identity += "|" + observedAt.UTC().Format(time.RFC3339Nano)
 		}
+		evidence := make([]RiskEvidence, 0, len(signal.Evidence))
+		for _, item := range signal.Evidence {
+			evidence = append(evidence, RiskEvidence{
+				Kind:       "price_metric",
+				Field:      item.Metric,
+				Value:      item.Value,
+				Unit:       item.Unit,
+				Comparison: item.Comparison,
+				Threshold:  item.Threshold,
+				Formula:    item.Formula,
+				SourceURL:  snapshot.Price.Source.SourceURL,
+				ObservedAt: observedAt,
+			})
+		}
+		if len(evidence) == 0 {
+			evidence = append(evidence, RiskEvidence{
+				Kind:       "price_signal",
+				Field:      "signal",
+				Value:      signal.Detail,
+				SourceURL:  snapshot.Price.Source.SourceURL,
+				ObservedAt: observedAt,
+			})
+		}
 		findings = append(findings, newRiskFinding(
-			"price.signal",
+			ruleID,
 			RiskCategoryPrice,
 			severity,
 			signal.Title,
@@ -210,15 +240,7 @@ func evaluatePriceSignalRisks(
 				"같은 시점에 기업 공시나 주요 뉴스가 있었는가?",
 				"시장 또는 섹터 전체에서도 비슷한 움직임이 나타났는가?",
 			},
-			[]RiskEvidence{
-				{
-					Kind:       "price_signal",
-					Field:      "signal",
-					Value:      signal.Detail,
-					SourceURL:  snapshot.Price.Source.SourceURL,
-					ObservedAt: observedAt,
-				},
-			},
+			evidence,
 			identity,
 		))
 	}

@@ -129,6 +129,11 @@ func normalizeAnalysisInput(input *AnalysisInput) {
 	if input.Signals == nil {
 		input.Signals = []Signal{}
 	}
+	for index := range input.Signals {
+		if input.Signals[index].Evidence == nil {
+			input.Signals[index].Evidence = []SignalEvidence{}
+		}
+	}
 	if input.Disclosures.Status == "" {
 		input.Disclosures.Status = models.DataStatusNotRequested
 	}
