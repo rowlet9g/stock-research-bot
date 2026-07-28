@@ -90,6 +90,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runPortfolioScenarios(args[1:], stdout, stderr)
 		case "portfolio-brief":
 			return runPortfolioBrief(args[1:], stdout, stderr)
+		case "analysis-run-list":
+			return runAnalysisRunList(args[1:], stdout, stderr)
 		case "krx-instrument-sync":
 			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":

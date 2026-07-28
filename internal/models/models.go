@@ -247,7 +247,7 @@ type AnalysisRun struct {
 	OutputSHA256   string          `json:"output_sha256"`
 	RuleVersion    string          `json:"rule_version"`
 	IdempotencyKey string          `json:"idempotency_key"`
-	Payload        json.RawMessage `json:"payload"`
+	Payload        json.RawMessage `json:"payload,omitempty"`
 	GeneratedAt    time.Time       `json:"generated_at"`
 	CreatedAt      time.Time       `json:"created_at"`
 }

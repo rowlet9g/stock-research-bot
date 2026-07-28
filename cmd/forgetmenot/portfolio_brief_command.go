@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/rowlet9g/stock-research-bot/internal/analysis"
+	"github.com/rowlet9g/stock-research-bot/internal/models"
 	"github.com/rowlet9g/stock-research-bot/internal/prompt"
 	sqlitestore "github.com/rowlet9g/stock-research-bot/internal/storage/sqlite"
 )
@@ -16,9 +18,11 @@ import (
 var portfolioBriefNow = time.Now
 
 type portfolioBriefCommandResult struct {
-	Valuation analysis.PortfolioValuationReport `json:"valuation"`
-	Scenarios analysis.PortfolioScenarioReport  `json:"scenarios"`
-	Brief     prompt.PortfolioResearchBrief     `json:"brief"`
+	Valuation    analysis.PortfolioValuationReport `json:"valuation"`
+	Scenarios    analysis.PortfolioScenarioReport  `json:"scenarios"`
+	Brief        prompt.PortfolioResearchBrief     `json:"brief"`
+	AnalysisRun  *models.AnalysisRun               `json:"analysis_run,omitempty"`
+	AlreadySaved bool                              `json:"already_saved,omitempty"`
 }
 
 func runPortfolioBrief(
@@ -34,6 +38,7 @@ func runPortfolioBrief(
 	downsideBPS := flags.Int64("downside-bps", -2000, "downside price return in basis points")
 	upsideBPS := flags.Int64("upside-bps", 2000, "upside price return in basis points")
 	question := flags.String("question", "", "portfolio research question")
+	saveRun := flags.Bool("save", false, "save the analysis run to SQLite")
 	outputFormat := flags.String("output", "text", "output format: text or json")
 	if err := flags.Parse(args); err != nil {
 		return 2
@@ -118,6 +123,40 @@ func runPortfolioBrief(
 		Valuation: valuation,
 		Scenarios: scenarios,
 		Brief:     brief,
+	}
+	if *saveRun {
+		payload, err := json.Marshal(result)
+		if err != nil {
+			return writeRuntimeFailure(
+				*outputFormat,
+				stdout,
+				stderr,
+				"analysis_run",
+				fmt.Errorf("encode portfolio brief run: %w", err),
+			)
+		}
+		run, duplicate, err := store.SaveAnalysisRun(
+			ctx,
+			sqlitestore.AnalysisRunInput{
+				Kind:        "portfolio_brief",
+				Status:      scenarios.Status,
+				InputSHA256: brief.ValuationSHA256,
+				RuleVersion: brief.Version,
+				Payload:     payload,
+				GeneratedAt: brief.GeneratedAt,
+			},
+		)
+		if err != nil {
+			return writeRuntimeFailure(
+				*outputFormat,
+				stdout,
+				stderr,
+				"analysis_run",
+				err,
+			)
+		}
+		result.AnalysisRun = &run
+		result.AlreadySaved = duplicate
 	}
 	if *outputFormat == "json" {
 		if err := writeJSON(stdout, result); err != nil {

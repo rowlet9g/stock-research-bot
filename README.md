@@ -10,6 +10,7 @@ DART 공시/재무 정보와 Yahoo Finance 시세 데이터를 결합해 투자 
 - [포트폴리오 평가](docs/PORTFOLIO_VALUATION.md): 통화별 가치, 손익과 집중도 계산 계약
 - [포트폴리오 시나리오](docs/PORTFOLIO_SCENARIOS.md): 확률을 만들지 않는 결정론적 스트레스 테스트
 - [가격 지표](docs/PRICE_METRICS.md): 수익률, 변동성, 낙폭과 거래량 신호 계산 계약
+- [분석 실행 이력](docs/ANALYSIS_RUNS.md): 입력·규칙·출력 해시 기반 SQLite 이력
 - [저장소 작업 지침](AGENTS.md): 구현, 보안, 테스트, 검증 및 Git 규칙
 - [Go 포팅 현황](README_GO.md): 현재 Go CLI 범위와 실행 방법
 
@@ -120,6 +121,8 @@ go run ./cmd/forgetmenot positions-import -file data/positions.csv
 go run ./cmd/forgetmenot portfolio-analyze -output json
 go run ./cmd/forgetmenot portfolio-scenarios -downside-bps -2000 -upside-bps 2000 -output json
 go run ./cmd/forgetmenot portfolio-brief -question "가장 먼저 확인할 집중 위험은?" -output text
+go run ./cmd/forgetmenot portfolio-brief -save -output json
+go run ./cmd/forgetmenot analysis-run-list -kind portfolio_brief
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -272,6 +275,11 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 두 결과의 입력 해시가 일치할 때만 ChatGPT Plus용 프롬프트를 생성합니다. text는
 붙여넣을 프롬프트만 출력하고 JSON은 평가, 시나리오, 프롬프트와 각 해시를 함께
 반환합니다. OpenAI API를 호출하지 않습니다.
+
+`portfolio-brief -save`는 명시한 경우에만 분석 결과를 `analysis_runs`에 저장합니다.
+같은 입력·규칙·출력은 중복 저장하지 않으며 `analysis-run-list`로 해시와 원본
+payload를 조회할 수 있습니다. 자세한 정책은
+[분석 실행 이력](docs/ANALYSIS_RUNS.md)을 참고하세요.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해

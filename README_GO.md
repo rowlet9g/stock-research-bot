@@ -77,6 +77,8 @@ go run ./cmd/forgetmenot positions-import -file data/positions.csv
 go run ./cmd/forgetmenot portfolio-analyze -output json
 go run ./cmd/forgetmenot portfolio-scenarios -output json
 go run ./cmd/forgetmenot portfolio-brief -question "포트폴리오의 가장 큰 위험은?" -output text
+go run ./cmd/forgetmenot portfolio-brief -save -output json
+go run ./cmd/forgetmenot analysis-run-list -kind portfolio_brief
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
 
@@ -132,6 +134,10 @@ go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전�
 `portfolio-brief`는 동일 가격 입력에서 평가와 시나리오를 한 번에 생성하고 입력
 SHA-256을 검증한 뒤 ChatGPT Plus용 프롬프트를 출력합니다. API를 호출하지 않으며
 JSON 출력에서는 원본 평가·시나리오와 프롬프트 해시를 함께 확인할 수 있습니다.
+
+`portfolio-brief -save`는 입력·규칙·출력 해시와 전체 JSON을 `analysis_runs`에
+멱등 저장합니다. 저장은 명시적으로 요청한 경우에만 수행하며
+[`docs/ANALYSIS_RUNS.md`](docs/ANALYSIS_RUNS.md)에 조회와 보안 정책을 정리했습니다.
 
 KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
 Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보
