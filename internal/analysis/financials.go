@@ -28,6 +28,8 @@ const (
 	FinancialMetricOperatingCashFlow  = "operating_cash_flow"
 )
 
+const FinancialMetricRuleVersion = "financial-metrics/v1"
+
 const (
 	FinancialPeriodAnnual      = "annual"
 	FinancialPeriodPointInTime = "point_in_time"

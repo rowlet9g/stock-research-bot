@@ -7,6 +7,8 @@ import (
 	"github.com/rowlet9g/stock-research-bot/internal/models"
 )
 
+const PriceSignalRuleVersion = "price-signals/v1"
+
 type Signal struct {
 	Level  string `json:"level"`
 	Title  string `json:"title"`

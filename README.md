@@ -47,6 +47,7 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - OpenDART 공시 원본 ZIP 검증, 파일 저장과 논리 버전 추적
 - OpenDART 전체 재무제표 계정 정규화, SQLite 버전 저장과 조회
 - OpenDART 표준계정 기반 핵심 재무지표 매핑과 재무비율 계산
+- 가격, 포트폴리오, 공시와 재무정보의 버전 지정 분석 입력 스냅샷
 
 ## 개발 환경 준비
 
@@ -98,6 +99,7 @@ go run ./cmd/forgetmenot dart-document-list -receipt-no 20260727000099
 go run ./cmd/forgetmenot dart-financial-sync -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS
 go run ./cmd/forgetmenot dart-financial-list -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS -account-limit 100
 go run ./cmd/forgetmenot dart-financial-metrics -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS
+go run ./cmd/forgetmenot analysis-snapshot -ticker 005930 -output json
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -178,6 +180,18 @@ API 금액은 쉼표를 제거한 부호 포함 정수 문자열로 정규화합
 비교합니다. 증감률, 영업이익률, 순이익률, 부채비율과 유동비율은 정수 기반으로
 소수 둘째 자리까지 계산합니다. 전기 금액이나 비율의 분모가 0 이하이면 해석을
 강행하지 않고 `not_comparable`로 표시합니다.
+
+`analysis-snapshot`은 저장된 종목별 포트폴리오, 거래, 투자 가설, 최신 OpenDART
+공시와 최신 현재 재무제표를 Yahoo 가격 및 가격 신호와 하나의 입력으로 묶습니다.
+OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데이터를 사용할 수
+있습니다. `-disclosure-limit`은 포함할 최근 공시 수, `-fs-div`는 최신 재무제표의
+연결 `CFS` 또는 개별 `OFS` 구분입니다.
+
+출력에는 `analysis-input/v1` 스키마, 가격·재무 계산 규칙 버전, 생성시각과
+`input_sha256`이 포함됩니다. 해시는 생성시각 자체를 제외한 실제 입력과 출처
+메타데이터로 계산합니다. 가격 요청이나 저장 데이터 일부가 실패해도 사용 가능한
+정보는 반환하고 전체 상태를 `partial`로 표시합니다. OpenDART 기업코드가 없는
+종목은 공시와 재무정보를 정상적인 `not_requested` 상태로 둡니다.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해

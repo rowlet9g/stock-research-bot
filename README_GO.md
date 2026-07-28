@@ -32,6 +32,7 @@
 - OpenDART 공시 원본 ZIP 검증, 로컬 저장과 내용 기반 버전 추적
 - OpenDART 전체 재무제표 계정 정규화와 내용 기반 버전 저장
 - OpenDART 표준계정 기반 핵심 재무지표와 재무비율 계산
+- 가격, 포트폴리오, 공시와 재무정보의 통합 분석 입력 스냅샷
 
 OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
 
@@ -59,6 +60,7 @@ go run ./cmd/forgetmenot dart-document-list -receipt-no 20260727000099
 go run ./cmd/forgetmenot dart-financial-sync -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS
 go run ./cmd/forgetmenot dart-financial-list -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS -account-limit 100
 go run ./cmd/forgetmenot dart-financial-metrics -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS
+go run ./cmd/forgetmenot analysis-snapshot -ticker 005930 -output json
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
 
@@ -77,6 +79,11 @@ go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전�
 구역을 함께 확인해 핵심 계정을 선택합니다. 계정명 추측이나 중복 계정 임의 선택은
 하지 않습니다. 분기·반기 손익과 현금흐름은 누적금액을 사용하며, 비교 기준이 0
 이하인 증감률은 `not_comparable`로 반환합니다.
+
+`analysis-snapshot`은 Yahoo 가격과 신호, 저장된 종목별 포트폴리오, 최신 공시,
+최신 현재 재무제표 지표를 `analysis-input/v1` 구조로 결합합니다. 생성시각과 별도로
+입력 해시와 계산 규칙 버전을 기록하며, 일부 데이터가 없으면 `partial`과 원인을
+반환합니다. OpenDART 대상이 아닌 종목의 공시와 재무는 `not_requested`입니다.
 
 KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
 Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보

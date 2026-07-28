@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -139,6 +140,67 @@ func TestSyncDARTFinancialStatementRejectsInvalidAmount(t *testing.T) {
 	}
 }
 
+func TestLatestCurrentDARTFinancialStatementUsesLatestObservation(
+	t *testing.T,
+) {
+	ctx := context.Background()
+	store, err := Open(ctx, filepath.Join(t.TempDir(), "forgetmenot.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer store.Close()
+
+	annual := dartFinancialStatement(
+		"20260310000777",
+		strings.Repeat("a", 64),
+		"500000000000000",
+		time.Date(2026, 3, 10, 1, 0, 0, 0, time.UTC),
+	)
+	if _, err := store.SyncDARTFinancialStatement(ctx, annual); err != nil {
+		t.Fatalf("sync annual financial statement: %v", err)
+	}
+
+	thirdQuarter := dartFinancialStatement(
+		"20251114002447",
+		strings.Repeat("b", 64),
+		"490000000000000",
+		time.Date(2026, 7, 28, 1, 0, 0, 0, time.UTC),
+	)
+	thirdQuarter.ReportCode = "11014"
+	thirdQuarter.Source.ObservedAt = timePointer(
+		time.Date(2025, 11, 14, 0, 0, 0, 0, time.UTC),
+	)
+	if _, err := store.SyncDARTFinancialStatement(
+		ctx,
+		thirdQuarter,
+	); err != nil {
+		t.Fatalf("sync third-quarter financial statement: %v", err)
+	}
+
+	latest, err := store.LatestCurrentDARTFinancialStatement(
+		ctx,
+		"00126380",
+		"CFS",
+	)
+	if err != nil {
+		t.Fatalf("query latest financial statement: %v", err)
+	}
+	if latest.ReceiptNo != annual.ReceiptNo ||
+		latest.ContentSHA256 != annual.ContentSHA256 ||
+		len(latest.Accounts) != 1 {
+		t.Fatalf("unexpected latest financial statement: %#v", latest)
+	}
+
+	_, err = store.LatestCurrentDARTFinancialStatement(
+		ctx,
+		"00126380",
+		"OFS",
+	)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected missing OFS statement, got %v", err)
+	}
+}
+
 func dartFinancialStatement(
 	receiptNo string,
 	contentHash string,
@@ -177,4 +239,8 @@ func dartFinancialStatement(
 			FetchedAt:  fetchedAt,
 		},
 	}
+}
+
+func timePointer(value time.Time) *time.Time {
+	return &value
 }

@@ -417,6 +417,68 @@ func (s *Store) CurrentDARTFinancialStatement(
 	return statements[0], nil
 }
 
+func (s *Store) LatestCurrentDARTFinancialStatement(
+	ctx context.Context,
+	corpCode string,
+	fsKind string,
+) (models.DARTFinancialStatement, error) {
+	corpCode = strings.TrimSpace(corpCode)
+	fsKind = strings.ToUpper(strings.TrimSpace(fsKind))
+	if !fixedDigits(corpCode, 8) {
+		return models.DARTFinancialStatement{}, fmt.Errorf(
+			"invalid OpenDART corporation code %q",
+			corpCode,
+		)
+	}
+	if fsKind != "CFS" && fsKind != "OFS" {
+		return models.DARTFinancialStatement{}, fmt.Errorf(
+			"financial statement division must be CFS or OFS",
+		)
+	}
+
+	statement, err := scanDARTFinancialStatement(s.db.QueryRowContext(ctx, `
+		SELECT
+			id,
+			corp_code,
+			business_year,
+			report_code,
+			fs_kind,
+			receipt_no,
+			content_sha256,
+			is_current,
+			source_url,
+			observed_at,
+			fetched_at,
+			created_at,
+			updated_at
+		FROM dart_financial_statements
+		WHERE corp_code = ?
+		  AND fs_kind = ?
+		  AND is_current = 1
+		ORDER BY observed_at DESC, business_year DESC, created_at DESC
+		LIMIT 1
+	`, corpCode, fsKind))
+	if err == sql.ErrNoRows {
+		return models.DARTFinancialStatement{}, fmt.Errorf(
+			"%w: latest OpenDART financial statement %s/%s",
+			ErrNotFound,
+			corpCode,
+			fsKind,
+		)
+	}
+	if err != nil {
+		return models.DARTFinancialStatement{}, fmt.Errorf(
+			"query latest OpenDART financial statement: %w",
+			err,
+		)
+	}
+	statement.Accounts, err = s.listDARTFinancialAccounts(ctx, statement.ID)
+	if err != nil {
+		return models.DARTFinancialStatement{}, err
+	}
+	return statement, nil
+}
+
 func scanDARTFinancialStatement(
 	row scanner,
 ) (models.DARTFinancialStatement, error) {

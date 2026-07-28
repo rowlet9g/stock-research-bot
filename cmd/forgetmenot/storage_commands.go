@@ -785,6 +785,7 @@ func writeCommandHelp(output io.Writer) {
 	fmt.Fprintln(output, "  dart-financial-sync Sync OpenDART full financial statements")
 	fmt.Fprintln(output, "  dart-financial-list List stored OpenDART financial statement versions")
 	fmt.Fprintln(output, "  dart-financial-metrics Calculate core metrics from stored statements")
+	fmt.Fprintln(output, "  analysis-snapshot Build a versioned analysis input snapshot")
 	fmt.Fprintln(output, "  krx-instrument-sync Sync KRX instrument identifiers and classifications")
 	fmt.Fprintln(output, "  position-set     Store the current position snapshot")
 	fmt.Fprintln(output, "  thesis-set       Store the current investment thesis")
