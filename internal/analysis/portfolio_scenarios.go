@@ -131,7 +131,7 @@ func StressPortfolio(
 	if err := validatePortfolioScenarioConfig(config); err != nil {
 		return PortfolioScenarioReport{}, err
 	}
-	inputHash, err := hashPortfolioValuation(valuation)
+	inputHash, err := PortfolioValuationSHA256(valuation)
 	if err != nil {
 		return PortfolioScenarioReport{}, err
 	}
@@ -245,7 +245,7 @@ func validatePortfolioScenarioConfig(config PortfolioScenarioConfig) error {
 	return nil
 }
 
-func hashPortfolioValuation(
+func PortfolioValuationSHA256(
 	valuation PortfolioValuationReport,
 ) (string, error) {
 	encoded, err := json.Marshal(valuation)
