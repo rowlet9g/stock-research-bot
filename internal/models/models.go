@@ -251,3 +251,39 @@ type AnalysisRun struct {
 	GeneratedAt    time.Time       `json:"generated_at"`
 	CreatedAt      time.Time       `json:"created_at"`
 }
+
+type AlertSeverity string
+
+const (
+	AlertSeverityInfo    AlertSeverity = "info"
+	AlertSeverityWatch   AlertSeverity = "watch"
+	AlertSeverityWarning AlertSeverity = "warning"
+)
+
+type AlertStatus string
+
+const (
+	AlertStatusPending      AlertStatus = "pending"
+	AlertStatusSent         AlertStatus = "sent"
+	AlertStatusFailed       AlertStatus = "failed"
+	AlertStatusAcknowledged AlertStatus = "acknowledged"
+)
+
+type Alert struct {
+	ID              int64           `json:"id"`
+	Fingerprint     string          `json:"fingerprint"`
+	Kind            string          `json:"kind"`
+	Severity        AlertSeverity   `json:"severity"`
+	Status          AlertStatus     `json:"status"`
+	Title           string          `json:"title"`
+	Fact            string          `json:"fact"`
+	SourceRunID     int64           `json:"source_run_id"`
+	Payload         json.RawMessage `json:"payload,omitempty"`
+	OccurrenceCount int             `json:"occurrence_count"`
+	FirstDetectedAt time.Time       `json:"first_detected_at"`
+	LastDetectedAt  time.Time       `json:"last_detected_at"`
+	SentAt          *time.Time      `json:"sent_at,omitempty"`
+	AcknowledgedAt  *time.Time      `json:"acknowledged_at,omitempty"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+}
