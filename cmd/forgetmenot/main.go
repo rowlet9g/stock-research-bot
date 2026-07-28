@@ -96,6 +96,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runAlertEvaluate(args[1:], stdout, stderr)
 		case "alert-list":
 			return runAlertList(args[1:], stdout, stderr)
+		case "daily-email-report":
+			return runDailyEmailReport(args[1:], stdout, stderr)
 		case "krx-instrument-sync":
 			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":

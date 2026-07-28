@@ -796,6 +796,7 @@ func writeCommandHelp(output io.Writer) {
 	fmt.Fprintln(output, "  analysis-run-list List stored versioned analysis runs")
 	fmt.Fprintln(output, "  alert-evaluate Evaluate and store alerts from a portfolio brief run")
 	fmt.Fprintln(output, "  alert-list       List stored alert candidates")
+	fmt.Fprintln(output, "  daily-email-report Preview or send the pending alert digest")
 	fmt.Fprintln(output, "  krx-instrument-sync Sync KRX instrument identifiers and classifications")
 	fmt.Fprintln(output, "  position-set     Store the current position snapshot")
 	fmt.Fprintln(output, "  thesis-set       Store the current investment thesis")
