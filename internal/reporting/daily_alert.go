@@ -18,18 +18,19 @@ type DailyAlertCounts struct {
 }
 
 type DailyAlertItem struct {
-	AlertID         int64                `json:"alert_id"`
+	AlertID         int64                `json:"alert_id,omitempty"`
 	Severity        models.AlertSeverity `json:"severity"`
 	Status          models.AlertStatus   `json:"status"`
 	Title           string               `json:"title"`
 	Fact            string               `json:"fact"`
 	OccurrenceCount int                  `json:"occurrence_count"`
-	SourceRunID     int64                `json:"source_run_id"`
+	SourceRunID     int64                `json:"source_run_id,omitempty"`
 	LastDetectedAt  time.Time            `json:"last_detected_at"`
 }
 
 type DailyAlertReport struct {
 	Version     string            `json:"version"`
+	Test        bool              `json:"test"`
 	Status      models.DataStatus `json:"status"`
 	ReportDate  string            `json:"report_date"`
 	TimeZone    string            `json:"time_zone"`
@@ -110,10 +111,43 @@ func BuildDailyAlertReport(
 	return report, nil
 }
 
+func BuildDailyAlertTestReport(
+	generatedAt time.Time,
+	location *time.Location,
+) (DailyAlertReport, error) {
+	report, err := BuildDailyAlertReport(
+		[]models.Alert{
+			{
+				Severity: models.AlertSeverityWatch,
+				Status:   models.AlertStatusPending,
+				Title:    "[테스트] 이메일 알림 경로 확인",
+				Fact: "이 항목은 실제 포트폴리오 위험이 아니라 " +
+					"이메일 보고서 전송을 검증하기 위해 생성됐다.",
+				OccurrenceCount: 1,
+				LastDetectedAt:  generatedAt,
+			},
+		},
+		generatedAt,
+		location,
+	)
+	if err != nil {
+		return DailyAlertReport{}, err
+	}
+	report.Test = true
+	return report, nil
+}
+
 func (r DailyAlertReport) Subject(prefix string) string {
 	prefix = strings.TrimSpace(prefix)
 	if prefix == "" {
 		prefix = "[ForgetMeNot]"
+	}
+	if r.Test {
+		return fmt.Sprintf(
+			"%s [TEST] 이메일 알림 점검 - %s",
+			prefix,
+			r.ReportDate,
+		)
 	}
 	return fmt.Sprintf("%s 일간 투자 점검 - %s", prefix, r.ReportDate)
 }
@@ -134,9 +168,14 @@ func (r DailyAlertReport) TextBody(
 		)
 	}
 	var builder strings.Builder
+	title := "ForgetMeNot 일간 투자 점검"
+	if r.Test {
+		title = "ForgetMeNot 이메일 알림 점검 [TEST]"
+	}
 	fmt.Fprintf(
 		&builder,
-		"ForgetMeNot 일간 투자 점검\n\n보고서 날짜: %s\n생성시각: %s\n기준 시간대: %s\n",
+		"%s\n\n보고서 날짜: %s\n생성시각: %s\n기준 시간대: %s\n",
+		title,
 		r.ReportDate,
 		r.GeneratedAt.In(location).Format(time.RFC3339),
 		r.TimeZone,
@@ -148,6 +187,11 @@ func (r DailyAlertReport) TextBody(
 		r.Counts.Watch,
 		r.Counts.Info,
 	)
+	if r.Test {
+		builder.WriteString(
+			"\n[TEST] 이 메일은 전송 경로 검증용이며 실제 투자 위험을 나타내지 않습니다.\n",
+		)
+	}
 	if len(r.Alerts) == 0 {
 		builder.WriteString("\n확인할 미발송 알림이 없습니다.\n")
 	} else {
@@ -155,15 +199,21 @@ func (r DailyAlertReport) TextBody(
 		for index, alert := range r.Alerts {
 			fmt.Fprintf(
 				&builder,
-				"\n%d. [%s] %s\n사실: %s\n발생 횟수: %d\n최근 관측: %s\n분석 실행 ID: %d\n",
+				"\n%d. [%s] %s\n사실: %s\n발생 횟수: %d\n최근 관측: %s\n",
 				index+1,
 				strings.ToUpper(string(alert.Severity)),
 				alert.Title,
 				alert.Fact,
 				alert.OccurrenceCount,
 				alert.LastDetectedAt.In(location).Format(time.RFC3339),
-				alert.SourceRunID,
 			)
+			if alert.SourceRunID > 0 {
+				fmt.Fprintf(
+					&builder,
+					"분석 실행 ID: %d\n",
+					alert.SourceRunID,
+				)
+			}
 		}
 	}
 	builder.WriteString(

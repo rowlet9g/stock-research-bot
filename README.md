@@ -131,6 +131,7 @@ go run ./cmd/forgetmenot analysis-run-list -kind portfolio_brief
 go run ./cmd/forgetmenot alert-evaluate -run-id 1
 go run ./cmd/forgetmenot alert-list -status pending
 go run ./cmd/forgetmenot daily-email-report
+go run ./cmd/forgetmenot daily-email-report -test-alert -send
 go run ./cmd/forgetmenot daily-email-report -send
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
@@ -300,6 +301,8 @@ payload를 조회할 수 있습니다. 자세한 정책은
 보냅니다. 성공한 경우에만 알림 상태를 `sent`로 바꾸며 자동 스케줄은 아직
 등록하지 않습니다. 설정과 안전 규칙은
 [일간 이메일 보고서](docs/EMAIL_REPORTS.md)를 참고하세요.
+전송 경로만 확인할 때는 `-test-alert -send`를 사용하며, 이 메일은 `[TEST]`로
+표시되고 실제 SQLite 알림 상태를 변경하지 않습니다.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해

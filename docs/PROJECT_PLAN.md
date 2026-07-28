@@ -378,6 +378,7 @@ OpenDART / KRX / SEC / FRED / Yahoo / 기업 IR / 미래에셋 CSV
 - `alert-evaluate` 생성과 `alert-list` 상태별 조회 CLI
 - 사실 중심 일간 보고서와 UTF-8 이메일 메시지 생성
 - TLS SMTP 설정 검증과 명시적 `daily-email-report -send`
+- 실제 데이터와 상태를 변경하지 않는 `[TEST]` 합성 알림 메일
 - 전송 성공 후 `sent` 기록과 새 분석 실행 재관측 시 `pending` 재개
 - 자동 스케줄러, 실제 계정 검증, 전송 이력과 quiet hours는 미구현
 

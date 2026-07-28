@@ -20,6 +20,7 @@ go run ./cmd/forgetmenot alert-evaluate -run-id 1
 go run ./cmd/forgetmenot alert-list -status pending
 go run ./cmd/forgetmenot alert-list -include-payload -output json
 go run ./cmd/forgetmenot daily-email-report
+go run ./cmd/forgetmenot daily-email-report -test-alert -send
 ```
 
 `alert-evaluate`는 저장된 실행이 `portfolio_brief`인지 확인하고, 저장된

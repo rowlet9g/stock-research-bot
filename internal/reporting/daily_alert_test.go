@@ -94,6 +94,42 @@ func TestBuildDailyAlertReportHandlesEmptyAlerts(t *testing.T) {
 	}
 }
 
+func TestBuildDailyAlertTestReportIsClearlySeparated(t *testing.T) {
+	generatedAt := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
+	report, err := BuildDailyAlertTestReport(generatedAt, time.UTC)
+	if err != nil {
+		t.Fatalf("build test report: %v", err)
+	}
+	if !report.Test ||
+		len(report.Alerts) != 1 ||
+		report.Alerts[0].AlertID != 0 ||
+		report.Alerts[0].SourceRunID != 0 ||
+		report.Counts.Watch != 1 ||
+		!strings.Contains(report.Alerts[0].Fact, "실제 포트폴리오 위험이 아니라") {
+		t.Fatalf("unexpected test report: %#v", report)
+	}
+	if subject := report.Subject(""); subject !=
+		"[ForgetMeNot] [TEST] 이메일 알림 점검 - 2026-07-28" {
+		t.Fatalf("unexpected test subject: %s", subject)
+	}
+	body, err := report.TextBody(time.UTC)
+	if err != nil {
+		t.Fatalf("render test report: %v", err)
+	}
+	for _, expected := range []string{
+		"이메일 알림 점검 [TEST]",
+		"전송 경로 검증용",
+		"[테스트] 이메일 알림 경로 확인",
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("test report body missing %q:\n%s", expected, body)
+		}
+	}
+	if strings.Contains(body, "분석 실행 ID: 0") {
+		t.Fatalf("test report exposed synthetic run ID:\n%s", body)
+	}
+}
+
 func TestBuildDailyAlertReportRejectsInvalidInputs(t *testing.T) {
 	if _, err := BuildDailyAlertReport(nil, time.Time{}, time.UTC); err == nil {
 		t.Fatal("zero generation time was accepted")

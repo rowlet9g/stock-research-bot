@@ -85,6 +85,7 @@ go run ./cmd/forgetmenot analysis-run-list -kind portfolio_brief
 go run ./cmd/forgetmenot alert-evaluate -run-id 1
 go run ./cmd/forgetmenot alert-list -status pending
 go run ./cmd/forgetmenot daily-email-report
+go run ./cmd/forgetmenot daily-email-report -test-alert -send
 go run ./cmd/forgetmenot daily-email-report -send
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
@@ -156,6 +157,7 @@ JSON 출력에서는 원본 평가·시나리오와 프롬프트 해시를 함�
 미리보기는 계정 정보 없이 실행되며 `-send`를 명시한 경우에만 TLS SMTP로
 전송합니다. 전송 성공 뒤에만 `sent` 상태를 저장하며 설정과 한계는
 [`docs/EMAIL_REPORTS.md`](docs/EMAIL_REPORTS.md)에 정리했습니다.
+`-test-alert`는 `[TEST]` 합성 항목만 보내고 실제 알림 상태를 변경하지 않습니다.
 
 KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
 Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보

@@ -54,6 +54,7 @@ func runDailyEmailReport(
 	limit := flags.Int("limit", 100, "maximum pending alerts from 1 to 500")
 	send := flags.Bool("send", false, "send the report through configured SMTP")
 	sendEmpty := flags.Bool("send-empty", false, "send even when no alerts are pending")
+	testAlert := flags.Bool("test-alert", false, "use one synthetic alert without changing SQLite")
 	outputFormat := flags.String("output", "text", "output format: text or json")
 	if err := flags.Parse(args); err != nil {
 		return 2
@@ -75,6 +76,13 @@ func runDailyEmailReport(
 			stdout,
 			stderr,
 			"send-empty requires send",
+		)
+	case *sendEmpty && *testAlert:
+		return commandInputError(
+			*outputFormat,
+			stdout,
+			stderr,
+			"send-empty cannot be combined with test-alert",
 		)
 	}
 
@@ -99,36 +107,46 @@ func runDailyEmailReport(
 	generatedAt := dailyEmailNow()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	store, err := sqlitestore.Open(ctx, *databasePath)
-	if err != nil {
-		return writeRuntimeFailure(
-			*outputFormat,
-			stdout,
-			stderr,
-			"storage",
-			err,
+	var store *sqlitestore.Store
+	var alerts []models.Alert
+	var report reporting.DailyAlertReport
+	if *testAlert {
+		report, err = reporting.BuildDailyAlertTestReport(
+			generatedAt,
+			location,
+		)
+	} else {
+		store, err = sqlitestore.Open(ctx, *databasePath)
+		if err != nil {
+			return writeRuntimeFailure(
+				*outputFormat,
+				stdout,
+				stderr,
+				"storage",
+				err,
+			)
+		}
+		defer store.Close()
+		alerts, err = store.ListAlerts(
+			ctx,
+			models.AlertStatusPending,
+			*limit,
+		)
+		if err != nil {
+			return writeRuntimeFailure(
+				*outputFormat,
+				stdout,
+				stderr,
+				"alerts",
+				err,
+			)
+		}
+		report, err = reporting.BuildDailyAlertReport(
+			alerts,
+			generatedAt,
+			location,
 		)
 	}
-	defer store.Close()
-	alerts, err := store.ListAlerts(
-		ctx,
-		models.AlertStatusPending,
-		*limit,
-	)
-	if err != nil {
-		return writeRuntimeFailure(
-			*outputFormat,
-			stdout,
-			stderr,
-			"alerts",
-			err,
-		)
-	}
-	report, err := reporting.BuildDailyAlertReport(
-		alerts,
-		generatedAt,
-		location,
-	)
 	if err != nil {
 		return writeRuntimeFailure(
 			*outputFormat,
@@ -157,7 +175,7 @@ func runDailyEmailReport(
 			Requested: *send,
 		},
 	}
-	if *send && len(alerts) == 0 && !*sendEmpty {
+	if *send && !*testAlert && len(alerts) == 0 && !*sendEmpty {
 		result.Delivery.SkippedReason = "no_pending_alerts"
 		return writeDailyEmailResult(
 			*outputFormat,
@@ -210,7 +228,7 @@ func runDailyEmailReport(
 				err,
 			)
 		}
-		if len(alerts) > 0 {
+		if !*testAlert && len(alerts) > 0 {
 			if err := store.MarkAlertsSent(
 				ctx,
 				alertIDs(alerts),

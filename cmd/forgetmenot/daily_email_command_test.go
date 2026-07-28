@@ -160,6 +160,62 @@ func TestDailyEmailReportDeliveryFailureKeepsAlertsPending(t *testing.T) {
 	}
 }
 
+func TestDailyEmailTestAlertDoesNotReadOrChangeStoredAlerts(t *testing.T) {
+	ctx := context.Background()
+	databasePath := filepath.Join(t.TempDir(), "forgetmenot.db")
+	alert := seedDailyEmailAlert(t, ctx, databasePath)
+	configureDailyEmailEnvironment(t)
+
+	originalSender := newDailyEmailSender
+	fake := &recordingDailyEmailSender{}
+	newDailyEmailSender = func(
+		_ emaildelivery.SMTPConfig,
+	) (dailyEmailSender, error) {
+		return fake, nil
+	}
+	t.Cleanup(func() { newDailyEmailSender = originalSender })
+
+	output := runCommand(
+		t,
+		"daily-email-report",
+		"-db", databasePath,
+		"-env", filepath.Join(t.TempDir(), "missing.env"),
+		"-test-alert",
+		"-send",
+		"-output", "json",
+	)
+	var result dailyEmailCommandResult
+	if err := json.Unmarshal(output, &result); err != nil {
+		t.Fatalf("decode sent test alert: %v\n%s", err, output)
+	}
+	if !result.Report.Test ||
+		len(result.Report.Alerts) != 1 ||
+		result.Report.Alerts[0].AlertID != 0 ||
+		!result.Delivery.Sent ||
+		!strings.Contains(result.Subject, "[TEST]") ||
+		!strings.Contains(result.Body, "실제 투자 위험을 나타내지 않습니다") ||
+		fake.Calls != 1 {
+		t.Fatalf(
+			"unexpected test alert result: result=%#v fake=%#v",
+			result,
+			fake,
+		)
+	}
+	store, err := sqlitestore.Open(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("reopen store: %v", err)
+	}
+	defer store.Close()
+	stored, err := store.Alert(ctx, alert.ID)
+	if err != nil {
+		t.Fatalf("load real pending alert: %v", err)
+	}
+	if stored.Status != models.AlertStatusPending ||
+		stored.SentAt != nil {
+		t.Fatalf("test email changed real alert: %#v", stored)
+	}
+}
+
 func TestDailyEmailReportSkipsEmptySendWithoutConfig(t *testing.T) {
 	output := runCommand(
 		t,

@@ -7,6 +7,7 @@ ForgetMeNot은 `pending` 상태의 알림 후보를 모아 일간 투자 점검 
 현재 범위는 다음과 같습니다.
 
 - SMTP 계정 없이 보고서 미리보기
+- 실제 투자 데이터와 분리된 `[TEST]` 합성 알림 메일
 - TLS가 적용된 SMTP를 통한 명시적 전송
 - 심각도별 경고, 관찰, 정보 건수와 사실 요약
 - 전송 성공 후 포함된 알림의 `sent` 상태 및 발송시각 저장
@@ -32,6 +33,24 @@ go run ./cmd/forgetmenot daily-email-report -output json
 ```powershell
 go run ./cmd/forgetmenot daily-email-report -limit 500
 ```
+
+## 테스트 알림 메일
+
+실제 포트폴리오 위험을 만들거나 SQLite 알림 상태를 변경하지 않고 전송 경로를
+검증하려면 `-test-alert`를 사용합니다.
+
+```powershell
+# 제목과 본문 미리보기
+go run ./cmd/forgetmenot daily-email-report -test-alert
+
+# 합성 알림 1건을 포함한 실제 이메일 전송
+go run ./cmd/forgetmenot daily-email-report -test-alert -send
+```
+
+테스트 보고서는 제목과 본문에 `[TEST]`를 표시하고, 포함된 항목이 실제
+포트폴리오 위험이 아니라는 사실을 명시합니다. 실제 `pending` 알림은 읽거나
+`sent`로 변경하지 않습니다. `-test-alert`와 `-send-empty`는 함께 사용할 수
+없습니다.
 
 ## 계정 설정
 
