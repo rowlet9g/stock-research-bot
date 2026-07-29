@@ -37,7 +37,12 @@ func runPortfolioBrief(
 	workers := flags.Int("workers", 4, "concurrent price requests from 1 to 16")
 	downsideBPS := flags.Int64("downside-bps", -2000, "downside price return in basis points")
 	upsideBPS := flags.Int64("upside-bps", 2000, "upside price return in basis points")
-	question := flags.String("question", "", "portfolio research question")
+	question := flags.String("question", "", "inline portfolio research question; overrides -question-file")
+	questionFile := flags.String(
+		"question-file",
+		defaultPortfolioQuestionFile,
+		"portfolio research question file; empty uses the built-in request",
+	)
 	saveRun := flags.Bool("save", false, "save the analysis run to SQLite")
 	outputFormat := flags.String("output", "text", "output format: text or json")
 	if err := flags.Parse(args); err != nil {
@@ -52,6 +57,18 @@ func runPortfolioBrief(
 		*downsideBPS,
 		*upsideBPS,
 	); err != nil {
+		return commandInputError(
+			*outputFormat,
+			stdout,
+			stderr,
+			err.Error(),
+		)
+	}
+	resolvedQuestion, err := resolvePortfolioQuestion(
+		*question,
+		*questionFile,
+	)
+	if err != nil {
 		return commandInputError(
 			*outputFormat,
 			stdout,
@@ -107,7 +124,7 @@ func runPortfolioBrief(
 		prompt.PortfolioResearchBriefInput{
 			Valuation:    valuation,
 			Scenarios:    scenarios,
-			UserQuestion: *question,
+			UserQuestion: resolvedQuestion,
 		},
 	)
 	if err != nil {

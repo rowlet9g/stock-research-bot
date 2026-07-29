@@ -10,7 +10,7 @@ import (
 	"github.com/rowlet9g/stock-research-bot/internal/analysis"
 )
 
-const PortfolioResearchBriefVersion = "portfolio-research-brief/v2"
+const PortfolioResearchBriefVersion = "portfolio-research-brief/v3"
 
 type PortfolioResearchBriefInput struct {
 	Valuation    analysis.PortfolioValuationReport
@@ -103,7 +103,7 @@ func BuildPortfolioResearchBrief(
 		input.Scenarios,
 	)
 
-	question := sanitizePromptData(input.UserQuestion)
+	question := sanitizePromptBlock(input.UserQuestion)
 	if question == "" {
 		question = "매수가격의 근거, 보유 가설의 유효성, 재검토 조건, 리밸런싱 선택지와 추가 매수 후보를 검토하기 전에 필요한 데이터를 정리해 줘."
 	}
@@ -128,6 +128,16 @@ func BuildPortfolioResearchBrief(
 		PromptSHA256:    hex.EncodeToString(promptHash[:]),
 		Prompt:          promptText,
 	}, nil
+}
+
+func sanitizePromptBlock(value string) string {
+	value = strings.ReplaceAll(value, "\r\n", "\n")
+	value = strings.ReplaceAll(value, "\r", "\n")
+	lines := strings.Split(value, "\n")
+	for index, line := range lines {
+		lines[index] = strings.Join(strings.Fields(line), " ")
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
 func writePortfolioBriefMetadata(

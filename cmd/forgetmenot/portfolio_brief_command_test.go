@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -73,12 +74,20 @@ func TestPortfolioBriefCommandBuildsHashLinkedPrompt(t *testing.T) {
 			},
 		}, nil
 	}
+	questionPath := filepath.Join(t.TempDir(), "portfolio-review.md")
+	if err := os.WriteFile(
+		questionPath,
+		[]byte("## 맞춤 검토\n\n가장 큰 집중 위험은?"),
+		0o600,
+	); err != nil {
+		t.Fatalf("write question file: %v", err)
+	}
 
 	output := runCommand(
 		t,
 		"portfolio-brief",
 		"-db", databasePath,
-		"-question", "가장 큰 집중 위험은?",
+		"-question-file", questionPath,
 		"-output", "json",
 	)
 	var result portfolioBriefCommandResult
@@ -89,10 +98,59 @@ func TestPortfolioBriefCommandBuildsHashLinkedPrompt(t *testing.T) {
 		result.Brief.PromptSHA256 == "" ||
 		result.Brief.ValuationSHA256 !=
 			result.Scenarios.InputValuationSHA256 ||
+		!strings.Contains(result.Brief.Prompt, "## 맞춤 검토") ||
 		!strings.Contains(result.Brief.Prompt, "가장 큰 집중 위험은?") ||
 		!strings.Contains(result.Brief.Prompt, "평가금액=400") ||
 		!strings.Contains(result.Brief.Prompt, "통화내비중=100.00%") ||
 		!strings.Contains(result.Brief.Prompt, "not_estimated") {
 		t.Fatalf("unexpected portfolio brief result: %#v", result)
+	}
+}
+
+func TestResolvePortfolioQuestionUsesFileAndInlineOverride(t *testing.T) {
+	questionPath := filepath.Join(t.TempDir(), "portfolio-review.md")
+	if err := os.WriteFile(
+		questionPath,
+		[]byte("\uFEFF# 검토 요청\r\n\r\n- 위험 근거를 확인해 줘.\r\n"),
+		0o600,
+	); err != nil {
+		t.Fatalf("write question file: %v", err)
+	}
+
+	question, err := resolvePortfolioQuestion("", questionPath)
+	if err != nil {
+		t.Fatalf("resolve file question: %v", err)
+	}
+	if question != "# 검토 요청\r\n\r\n- 위험 근거를 확인해 줘." {
+		t.Fatalf("unexpected file question: %q", question)
+	}
+
+	override, err := resolvePortfolioQuestion(
+		" 일회성 질문 ",
+		filepath.Join(t.TempDir(), "missing.md"),
+	)
+	if err != nil {
+		t.Fatalf("resolve inline override: %v", err)
+	}
+	if override != "일회성 질문" {
+		t.Fatalf("unexpected inline override: %q", override)
+	}
+}
+
+func TestResolvePortfolioQuestionRejectsInvalidFile(t *testing.T) {
+	emptyPath := filepath.Join(t.TempDir(), "empty.md")
+	if err := os.WriteFile(emptyPath, []byte(" \r\n"), 0o600); err != nil {
+		t.Fatalf("write empty question file: %v", err)
+	}
+
+	if _, err := resolvePortfolioQuestion("", emptyPath); err == nil ||
+		!strings.Contains(err.Error(), "is empty") {
+		t.Fatalf("expected empty file error, got %v", err)
+	}
+	if _, err := resolvePortfolioQuestion(
+		"",
+		filepath.Join(t.TempDir(), "missing.md"),
+	); err == nil || !strings.Contains(err.Error(), "read portfolio question") {
+		t.Fatalf("expected missing file error, got %v", err)
 	}
 }

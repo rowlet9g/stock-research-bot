@@ -125,7 +125,9 @@ go run ./cmd/forgetmenot position-reconcile -output json
 go run ./cmd/forgetmenot positions-import -file data/positions.csv
 go run ./cmd/forgetmenot portfolio-analyze -output json
 go run ./cmd/forgetmenot portfolio-scenarios -downside-bps -2000 -upside-bps 2000 -output json
+go run ./cmd/forgetmenot portfolio-brief -output text
 go run ./cmd/forgetmenot portfolio-brief -question "가장 먼저 확인할 집중 위험은?" -output text
+go run ./cmd/forgetmenot portfolio-brief -question-file prompts/portfolio_review.md -output text
 go run ./cmd/forgetmenot portfolio-brief -save -output json
 go run ./cmd/forgetmenot analysis-run-list -kind portfolio_brief
 go run ./cmd/forgetmenot alert-evaluate -run-id 1
@@ -284,7 +286,11 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 `portfolio-brief`는 한 번 수집한 가격으로 포트폴리오 평가와 시나리오를 만들고,
 두 결과의 입력 해시가 일치할 때만 ChatGPT Plus용 프롬프트를 생성합니다. text는
 붙여넣을 프롬프트만 출력하고 JSON은 평가, 시나리오, 프롬프트와 각 해시를 함께
-반환합니다. OpenAI API를 호출하지 않습니다.
+반환합니다. OpenAI API를 호출하지 않습니다. 기본 분석 요청은
+[`prompts/portfolio_review.md`](prompts/portfolio_review.md)에서 읽습니다.
+이 파일을 수정하면 매 실행에 같은 요청 구조가 적용되며, `-question`은 파일 내용을
+일회성 질문으로 덮어씁니다. 다른 템플릿은 `-question-file`로 지정하고,
+`-question-file ""`은 파일 로드를 끄고 코드에 내장된 기본 요청을 사용합니다.
 
 `portfolio-brief -save`는 명시한 경우에만 분석 결과를 `analysis_runs`에 저장합니다.
 같은 입력·규칙·출력은 중복 저장하지 않으며 `analysis-run-list`로 해시와 원본
