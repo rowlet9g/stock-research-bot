@@ -69,6 +69,82 @@ func TestValuePortfolioDoesNotNetLongAndShortConcentration(t *testing.T) {
 	}
 }
 
+func TestValuePortfolioCarriesDecisionEvidenceAndRebalanceReferences(t *testing.T) {
+	generatedAt := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
+	input := portfolioValuationInput(
+		t,
+		"AAPL",
+		"USD",
+		"2",
+		"150",
+		120,
+		generatedAt,
+	)
+	change1D := -1.5
+	return20D := -8.25
+	return60D := -12.5
+	volatility20D := 31.2
+	volatility60D := 28.4
+	drawdown6M := -24.5
+	ma20 := 130.0
+	ma60 := 140.0
+	volumeRatio := 1.8
+	input.Price.MetricVersion = "fixture-price-metrics/v1"
+	input.Price.ChangePct1D = &change1D
+	input.Price.ReturnPct20D = &return20D
+	input.Price.ReturnPct60D = &return60D
+	input.Price.AnnualizedVolatilityPct20D = &volatility20D
+	input.Price.AnnualizedVolatilityPct60D = &volatility60D
+	input.Price.MaxDrawdownPct6M = &drawdown6M
+	input.Price.MA20 = &ma20
+	input.Price.MA60 = &ma60
+	input.Price.VolumeRatio20D = &volumeRatio
+	input.Portfolio.Thesis = &models.Thesis{
+		Summary:               "service growth",
+		InvalidationCondition: "margin contracts",
+		ExpectedHoldingPeriod: "3 years",
+		CheckMetrics:          []string{"services revenue"},
+	}
+
+	report, err := ValuePortfolio(
+		[]PortfolioValuationInput{input},
+		generatedAt,
+		DefaultPortfolioValuationConfig(),
+	)
+	if err != nil {
+		t.Fatalf("value portfolio: %v", err)
+	}
+	item := positionValuation(t, report, "AAPL")
+	if item.UnrealizedPL != "-60" ||
+		item.UnrealizedReturnPct != "-20.00" ||
+		item.UnrealizedReturnBPS == nil ||
+		*item.UnrealizedReturnBPS != -2000 {
+		t.Fatalf("unexpected return from cost: %#v", item)
+	}
+	if item.MarketMetrics.Trend != "below_ma20_and_ma60" ||
+		item.MarketMetrics.ReturnPct20D == nil ||
+		*item.MarketMetrics.ReturnPct20D != return20D ||
+		item.MarketMetrics.VolumeRatio20D == nil ||
+		*item.MarketMetrics.VolumeRatio20D != volumeRatio {
+		t.Fatalf("market evidence was not preserved: %#v", item.MarketMetrics)
+	}
+	if item.Thesis == nil ||
+		item.Thesis.Summary != "service growth" ||
+		len(item.Thesis.CheckMetrics) != 1 {
+		t.Fatalf("investment thesis was not preserved: %#v", item.Thesis)
+	}
+	if len(item.RebalanceReferences) != 2 ||
+		item.RebalanceReferences[0].TargetLabel != "high_threshold" ||
+		item.RebalanceReferences[0].ReallocationValue != "144" ||
+		item.RebalanceReferences[1].TargetLabel != "watch_threshold" ||
+		item.RebalanceReferences[1].ReallocationValue != "180" {
+		t.Fatalf(
+			"unexpected rebalance references: %#v",
+			item.RebalanceReferences,
+		)
+	}
+}
+
 func TestValuePortfolioPreservesUnknownAndPartialStates(t *testing.T) {
 	generatedAt := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
 	missingPosition := PortfolioValuationInput{

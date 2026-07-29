@@ -13,7 +13,7 @@ import (
 	"github.com/rowlet9g/stock-research-bot/internal/models"
 )
 
-const PortfolioValuationVersion = "portfolio-valuation/v1"
+const PortfolioValuationVersion = "portfolio-valuation/v2"
 
 type ConcentrationLevel string
 
@@ -50,9 +50,34 @@ type PortfolioValuationIssue struct {
 	Message string `json:"message"`
 }
 
+type PositionMarketMetrics struct {
+	MetricVersion              string   `json:"metric_version,omitempty"`
+	ChangePct1D                *float64 `json:"change_pct_1d,omitempty"`
+	ReturnPct20D               *float64 `json:"return_pct_20d,omitempty"`
+	ReturnPct60D               *float64 `json:"return_pct_60d,omitempty"`
+	AnnualizedVolatilityPct20D *float64 `json:"annualized_volatility_pct_20d,omitempty"`
+	AnnualizedVolatilityPct60D *float64 `json:"annualized_volatility_pct_60d,omitempty"`
+	MaxDrawdownPct6M           *float64 `json:"max_drawdown_pct_6m,omitempty"`
+	MA20                       *float64 `json:"ma20,omitempty"`
+	MA60                       *float64 `json:"ma60,omitempty"`
+	VolumeRatio20D             *float64 `json:"volume_ratio_20d,omitempty"`
+	Trend                      string   `json:"trend"`
+}
+
+type RebalanceReference struct {
+	TargetLabel            string `json:"target_label"`
+	TargetWeightBPS        int64  `json:"target_weight_bps"`
+	TargetWeightPct        string `json:"target_weight_pct"`
+	ReallocationValueUnits int64  `json:"reallocation_value_units"`
+	ReallocationValue      string `json:"reallocation_value"`
+	Basis                  string `json:"basis"`
+	Assumption             string `json:"assumption"`
+}
+
 type PositionValuation struct {
 	Instrument            models.Instrument         `json:"instrument"`
 	Status                models.DataStatus         `json:"status"`
+	Thesis                *models.Thesis            `json:"thesis,omitempty"`
 	QuantityUnits         *int64                    `json:"quantity_units,omitempty"`
 	Quantity              string                    `json:"quantity,omitempty"`
 	AverageCostUnits      *int64                    `json:"average_cost_units,omitempty"`
@@ -69,9 +94,13 @@ type PositionValuation struct {
 	CostBasis             string                    `json:"cost_basis,omitempty"`
 	UnrealizedPLUnits     *int64                    `json:"unrealized_pl_units,omitempty"`
 	UnrealizedPL          string                    `json:"unrealized_pl,omitempty"`
+	UnrealizedReturnBPS   *int64                    `json:"unrealized_return_bps,omitempty"`
+	UnrealizedReturnPct   string                    `json:"unrealized_return_pct,omitempty"`
 	WeightBPS             *int64                    `json:"weight_bps,omitempty"`
 	WeightPct             string                    `json:"weight_pct,omitempty"`
 	Concentration         ConcentrationLevel        `json:"concentration"`
+	MarketMetrics         PositionMarketMetrics     `json:"market_metrics"`
+	RebalanceReferences   []RebalanceReference      `json:"rebalance_references"`
 	PriceSource           *models.SourceMetadata    `json:"price_source,omitempty"`
 	Issues                []PortfolioValuationIssue `json:"issues"`
 }
@@ -223,6 +252,20 @@ func ValuePortfolio(
 		item.WeightBPS = int64Pointer(weightBPS)
 		item.WeightPct = formatBPS(weightBPS)
 		item.Concentration = concentrationLevel(weightBPS, config)
+		references, err := buildRebalanceReferences(
+			*item.GrossMarketValueUnits,
+			group.GrossMarketValueUnits,
+			weightBPS,
+			config,
+		)
+		if err != nil {
+			return PortfolioValuationReport{}, fmt.Errorf(
+				"calculate portfolio rebalance references %s: %w",
+				item.Instrument.Ticker,
+				err,
+			)
+		}
+		item.RebalanceReferences = references
 		for index := range report.Positions {
 			if strings.EqualFold(
 				report.Positions[index].Instrument.Ticker,
@@ -274,8 +317,13 @@ func valuePortfolioPosition(
 	item := PositionValuation{
 		Instrument:    input.Portfolio.Instrument,
 		Status:        models.DataStatusAvailable,
+		Thesis:        cloneThesis(input.Portfolio.Thesis),
 		Concentration: ConcentrationNotApplicable,
-		Issues:        append([]PortfolioValuationIssue(nil), input.Issues...),
+		MarketMetrics: PositionMarketMetrics{
+			Trend: "not_available",
+		},
+		RebalanceReferences: []RebalanceReference{},
+		Issues:              append([]PortfolioValuationIssue(nil), input.Issues...),
 	}
 	ticker := input.Portfolio.Instrument.Ticker
 	for index := range item.Issues {
@@ -335,6 +383,7 @@ func valuePortfolioPosition(
 	}
 	item.LastPriceUnits = int64Pointer(priceUnits)
 	item.LastPrice = decimal.Format(priceUnits)
+	item.MarketMetrics = marketMetrics(input.Price, priceUnits)
 	source := input.Price.Source
 	item.PriceSource = &source
 	if input.Price.Status != models.DataStatusAvailable {
@@ -396,7 +445,121 @@ func valuePortfolioPosition(
 	item.CostBasis = decimal.Format(costBasis)
 	item.UnrealizedPLUnits = int64Pointer(unrealizedPL)
 	item.UnrealizedPL = decimal.Format(unrealizedPL)
+	costMagnitude, err := absoluteInt64(costBasis)
+	if err != nil {
+		return PositionValuation{}, err
+	}
+	if costMagnitude == 0 {
+		item.Status = models.DataStatusPartial
+		item.Issues = append(item.Issues, PortfolioValuationIssue{
+			Ticker: ticker,
+			Kind:   "cost_basis_precision_zero",
+			Message: "cost basis rounded to zero at fixed decimal precision; " +
+				"return from average cost is not calculated",
+		})
+		return item, nil
+	}
+	unrealizedReturnBPS, err := signedRatioBPS(
+		unrealizedPL,
+		costMagnitude,
+	)
+	if err != nil {
+		return PositionValuation{}, err
+	}
+	item.UnrealizedReturnBPS = int64Pointer(unrealizedReturnBPS)
+	item.UnrealizedReturnPct = formatBPS(unrealizedReturnBPS)
 	return item, nil
+}
+
+func cloneThesis(thesis *models.Thesis) *models.Thesis {
+	if thesis == nil {
+		return nil
+	}
+	cloned := *thesis
+	cloned.CheckMetrics = append([]string(nil), thesis.CheckMetrics...)
+	return &cloned
+}
+
+func marketMetrics(
+	snapshot models.PriceSnapshot,
+	priceUnits int64,
+) PositionMarketMetrics {
+	metrics := PositionMarketMetrics{
+		MetricVersion:              snapshot.MetricVersion,
+		ChangePct1D:                snapshot.ChangePct1D,
+		ReturnPct20D:               snapshot.ReturnPct20D,
+		ReturnPct60D:               snapshot.ReturnPct60D,
+		AnnualizedVolatilityPct20D: snapshot.AnnualizedVolatilityPct20D,
+		AnnualizedVolatilityPct60D: snapshot.AnnualizedVolatilityPct60D,
+		MaxDrawdownPct6M:           snapshot.MaxDrawdownPct6M,
+		MA20:                       snapshot.MA20,
+		MA60:                       snapshot.MA60,
+		VolumeRatio20D:             snapshot.VolumeRatio20D,
+		Trend:                      "not_available",
+	}
+	if snapshot.MA20 == nil || snapshot.MA60 == nil {
+		return metrics
+	}
+	price := float64(priceUnits) / float64(decimal.Scale)
+	switch {
+	case price >= *snapshot.MA20 && price >= *snapshot.MA60:
+		metrics.Trend = "above_ma20_and_ma60"
+	case price < *snapshot.MA20 && price < *snapshot.MA60:
+		metrics.Trend = "below_ma20_and_ma60"
+	default:
+		metrics.Trend = "mixed_ma20_ma60"
+	}
+	return metrics
+}
+
+func buildRebalanceReferences(
+	positionGross int64,
+	currencyGross int64,
+	weightBPS int64,
+	config PortfolioValuationConfig,
+) ([]RebalanceReference, error) {
+	type target struct {
+		label string
+		bps   int64
+	}
+	targets := []target{}
+	if weightBPS >= config.HighThresholdBPS {
+		targets = append(targets, target{
+			label: "high_threshold",
+			bps:   config.HighThresholdBPS,
+		})
+	}
+	if weightBPS >= config.WatchThresholdBPS {
+		targets = append(targets, target{
+			label: "watch_threshold",
+			bps:   config.WatchThresholdBPS,
+		})
+	}
+	references := make([]RebalanceReference, 0, len(targets))
+	for _, target := range targets {
+		targetValue, err := multiplyBPS(currencyGross, target.bps)
+		if err != nil {
+			return nil, err
+		}
+		excess, err := subtractExactInt64(positionGross, targetValue)
+		if err != nil {
+			return nil, err
+		}
+		if excess <= 0 {
+			continue
+		}
+		references = append(references, RebalanceReference{
+			TargetLabel:            target.label,
+			TargetWeightBPS:        target.bps,
+			TargetWeightPct:        formatBPS(target.bps),
+			ReallocationValueUnits: excess,
+			ReallocationValue:      decimal.Format(excess),
+			Basis:                  config.WeightBasis,
+			Assumption: "the reference amount is reallocated within the same currency group " +
+				"and total gross exposure remains unchanged",
+		})
+	}
+	return references, nil
 }
 
 func usablePortfolioPrice(
@@ -522,6 +685,54 @@ func ratioBPS(value int64, total int64) (int64, error) {
 	}
 	if !quotient.IsInt64() {
 		return 0, fmt.Errorf("portfolio weight exceeds int64 range")
+	}
+	return quotient.Int64(), nil
+}
+
+func signedRatioBPS(value int64, total int64) (int64, error) {
+	if total <= 0 {
+		return 0, fmt.Errorf(
+			"signed ratio requires a positive total",
+		)
+	}
+	negative := value < 0
+	numerator := new(big.Int).Mul(big.NewInt(value), big.NewInt(10000))
+	numerator.Abs(numerator)
+	denominator := big.NewInt(total)
+	quotient := new(big.Int)
+	remainder := new(big.Int)
+	quotient.QuoRem(numerator, denominator, remainder)
+	if new(big.Int).Mul(remainder, big.NewInt(2)).Cmp(denominator) >= 0 {
+		quotient.Add(quotient, big.NewInt(1))
+	}
+	if negative {
+		quotient.Neg(quotient)
+	}
+	if !quotient.IsInt64() {
+		return 0, fmt.Errorf("signed ratio exceeds int64 range")
+	}
+	return quotient.Int64(), nil
+}
+
+func multiplyBPS(value int64, basisPoints int64) (int64, error) {
+	if value < 0 || basisPoints < 0 {
+		return 0, fmt.Errorf(
+			"basis point multiplication requires non-negative values",
+		)
+	}
+	numerator := new(big.Int).Mul(
+		big.NewInt(value),
+		big.NewInt(basisPoints),
+	)
+	denominator := big.NewInt(10000)
+	quotient := new(big.Int)
+	remainder := new(big.Int)
+	quotient.QuoRem(numerator, denominator, remainder)
+	if new(big.Int).Mul(remainder, big.NewInt(2)).Cmp(denominator) >= 0 {
+		quotient.Add(quotient, big.NewInt(1))
+	}
+	if !quotient.IsInt64() {
+		return 0, fmt.Errorf("basis point result exceeds int64 range")
 	}
 	return quotient.Int64(), nil
 }
