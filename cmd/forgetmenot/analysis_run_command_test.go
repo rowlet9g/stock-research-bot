@@ -10,6 +10,7 @@ import (
 
 	"github.com/rowlet9g/stock-research-bot/internal/decimal"
 	"github.com/rowlet9g/stock-research-bot/internal/models"
+	"github.com/rowlet9g/stock-research-bot/internal/prompt"
 	sqlitestore "github.com/rowlet9g/stock-research-bot/internal/storage/sqlite"
 )
 
@@ -117,7 +118,7 @@ func TestPortfolioBriefSaveAndAnalysisRunListAreIdempotent(t *testing.T) {
 	if len(listed.Runs) != 1 ||
 		!strings.Contains(
 			string(listed.Runs[0].Payload),
-			`"portfolio-research-brief/v1"`,
+			`"`+prompt.PortfolioResearchBriefVersion+`"`,
 		) {
 		t.Fatalf("unexpected stored analysis runs: %#v", listed)
 	}
