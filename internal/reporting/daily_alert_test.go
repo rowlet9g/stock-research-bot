@@ -1,16 +1,28 @@
 package reporting
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/rowlet9g/stock-research-bot/internal/alerting"
 	"github.com/rowlet9g/stock-research-bot/internal/models"
 )
 
 func TestBuildDailyAlertReportSortsAndRendersFacts(t *testing.T) {
 	location := time.FixedZone("Asia/Seoul", 9*60*60)
 	generatedAt := time.Date(2026, 7, 28, 23, 30, 0, 0, time.UTC)
+	candidatePayload, err := json.Marshal(alerting.Candidate{
+		PossibleInterpretation: "한 종목의 가격 변화가 포트폴리오 결과에 미치는 영향이 크다.",
+		ValidationQuestions: []string{
+			"이 비중이 의도한 위험 한도 안에 있는가?",
+			"투자 가설과 무효화 조건이 최신인가?",
+		},
+	})
+	if err != nil {
+		t.Fatalf("encode candidate payload: %v", err)
+	}
 	alerts := []models.Alert{
 		{
 			ID:              2,
@@ -30,6 +42,7 @@ func TestBuildDailyAlertReportSortsAndRendersFacts(t *testing.T) {
 			Fact:            "AAPL의 USD 총 노출액 비중은 60.00%다.",
 			OccurrenceCount: 2,
 			SourceRunID:     11,
+			Payload:         candidatePayload,
 			LastDetectedAt:  generatedAt.Add(-time.Hour),
 		},
 	}
@@ -59,6 +72,9 @@ func TestBuildDailyAlertReportSortsAndRendersFacts(t *testing.T) {
 		"경고 1건 / 관찰 0건 / 정보 1건",
 		"[WARNING] 단일 종목 집중도 확인 필요",
 		"사실: AAPL의 USD 총 노출액 비중은 60.00%다.",
+		"가능한 해석: 한 종목의 가격 변화가 포트폴리오 결과에 미치는 영향이 크다.",
+		"확인 질문:",
+		"- 이 비중이 의도한 위험 한도 안에 있는가?",
 		"자동 매수·매도 지시가 아닙니다",
 	} {
 		if !strings.Contains(body, expected) {
@@ -150,5 +166,17 @@ func TestBuildDailyAlertReportRejectsInvalidInputs(t *testing.T) {
 		time.UTC,
 	); err == nil {
 		t.Fatal("unsupported severity was accepted")
+	}
+	if _, err := BuildDailyAlertReport(
+		[]models.Alert{{
+			ID:             2,
+			Severity:       models.AlertSeverityWatch,
+			Payload:        []byte("{"),
+			LastDetectedAt: time.Now(),
+		}},
+		time.Now(),
+		time.UTC,
+	); err == nil || !strings.Contains(err.Error(), "candidate payload") {
+		t.Fatalf("invalid candidate payload was accepted: %v", err)
 	}
 }

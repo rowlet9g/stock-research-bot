@@ -1,15 +1,17 @@
 package reporting
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/rowlet9g/stock-research-bot/internal/alerting"
 	"github.com/rowlet9g/stock-research-bot/internal/models"
 )
 
-const DailyAlertReportVersion = "daily-alert-report/v1"
+const DailyAlertReportVersion = "daily-alert-report/v2"
 
 type DailyAlertCounts struct {
 	Warning int `json:"warning"`
@@ -18,14 +20,16 @@ type DailyAlertCounts struct {
 }
 
 type DailyAlertItem struct {
-	AlertID         int64                `json:"alert_id,omitempty"`
-	Severity        models.AlertSeverity `json:"severity"`
-	Status          models.AlertStatus   `json:"status"`
-	Title           string               `json:"title"`
-	Fact            string               `json:"fact"`
-	OccurrenceCount int                  `json:"occurrence_count"`
-	SourceRunID     int64                `json:"source_run_id,omitempty"`
-	LastDetectedAt  time.Time            `json:"last_detected_at"`
+	AlertID                int64                `json:"alert_id,omitempty"`
+	Severity               models.AlertSeverity `json:"severity"`
+	Status                 models.AlertStatus   `json:"status"`
+	Title                  string               `json:"title"`
+	Fact                   string               `json:"fact"`
+	PossibleInterpretation string               `json:"possible_interpretation,omitempty"`
+	ValidationQuestions    []string             `json:"validation_questions"`
+	OccurrenceCount        int                  `json:"occurrence_count"`
+	SourceRunID            int64                `json:"source_run_id,omitempty"`
+	LastDetectedAt         time.Time            `json:"last_detected_at"`
 }
 
 type DailyAlertReport struct {
@@ -97,16 +101,40 @@ func BuildDailyAlertReport(
 				alert.Severity,
 			)
 		}
-		report.Alerts = append(report.Alerts, DailyAlertItem{
-			AlertID:         alert.ID,
-			Severity:        alert.Severity,
-			Status:          alert.Status,
-			Title:           strings.TrimSpace(alert.Title),
-			Fact:            strings.TrimSpace(alert.Fact),
-			OccurrenceCount: alert.OccurrenceCount,
-			SourceRunID:     alert.SourceRunID,
-			LastDetectedAt:  alert.LastDetectedAt.UTC(),
-		})
+		item := DailyAlertItem{
+			AlertID:             alert.ID,
+			Severity:            alert.Severity,
+			Status:              alert.Status,
+			Title:               strings.TrimSpace(alert.Title),
+			Fact:                strings.TrimSpace(alert.Fact),
+			ValidationQuestions: []string{},
+			OccurrenceCount:     alert.OccurrenceCount,
+			SourceRunID:         alert.SourceRunID,
+			LastDetectedAt:      alert.LastDetectedAt.UTC(),
+		}
+		if len(alert.Payload) > 0 {
+			var candidate alerting.Candidate
+			if err := json.Unmarshal(alert.Payload, &candidate); err != nil {
+				return DailyAlertReport{}, fmt.Errorf(
+					"decode alert %d candidate payload: %w",
+					alert.ID,
+					err,
+				)
+			}
+			item.PossibleInterpretation = strings.TrimSpace(
+				candidate.PossibleInterpretation,
+			)
+			for _, question := range candidate.ValidationQuestions {
+				question = strings.TrimSpace(question)
+				if question != "" {
+					item.ValidationQuestions = append(
+						item.ValidationQuestions,
+						question,
+					)
+				}
+			}
+		}
+		report.Alerts = append(report.Alerts, item)
 	}
 	return report, nil
 }
@@ -213,6 +241,19 @@ func (r DailyAlertReport) TextBody(
 					"분석 실행 ID: %d\n",
 					alert.SourceRunID,
 				)
+			}
+			if alert.PossibleInterpretation != "" {
+				fmt.Fprintf(
+					&builder,
+					"가능한 해석: %s\n",
+					alert.PossibleInterpretation,
+				)
+			}
+			if len(alert.ValidationQuestions) > 0 {
+				builder.WriteString("확인 질문:\n")
+				for _, question := range alert.ValidationQuestions {
+					fmt.Fprintf(&builder, "- %s\n", question)
+				}
 			}
 		}
 	}
