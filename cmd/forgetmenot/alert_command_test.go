@@ -42,6 +42,16 @@ func TestAlertEvaluateStoresAndDeduplicatesPortfolioCandidates(t *testing.T) {
 	); err != nil {
 		t.Fatalf("seed position: %v", err)
 	}
+	if _, err := store.UpsertThesis(
+		ctx,
+		"AAPL",
+		"services growth",
+		"margin contracts",
+		"3 years",
+		[]string{"services revenue"},
+	); err != nil {
+		t.Fatalf("seed thesis: %v", err)
+	}
 	if err := store.Close(); err != nil {
 		t.Fatalf("close seed store: %v", err)
 	}

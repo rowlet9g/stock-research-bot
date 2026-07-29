@@ -35,6 +35,7 @@ func TestEvaluatePortfolioCandidatesBuildsStableConcentrationAlerts(
 			WeightBPS:             &weightA,
 			WeightPct:             "60.00",
 			Concentration:         analysis.ConcentrationHigh,
+			Thesis:                &models.Thesis{Summary: "services growth"},
 			Issues:                []analysis.PortfolioValuationIssue{},
 		},
 		{
@@ -55,6 +56,7 @@ func TestEvaluatePortfolioCandidatesBuildsStableConcentrationAlerts(
 			WeightBPS:             &weightB,
 			WeightPct:             "40.00",
 			Concentration:         analysis.ConcentrationHigh,
+			Thesis:                &models.Thesis{Summary: "margin recovery"},
 			Issues:                []analysis.PortfolioValuationIssue{},
 		},
 	})
@@ -97,6 +99,89 @@ func TestEvaluatePortfolioCandidatesBuildsStableConcentrationAlerts(
 		"AAPL",
 	).Fingerprint != apple.Fingerprint {
 		t.Fatal("concentration fingerprint changed with observed weight")
+	}
+}
+
+func TestEvaluatePortfolioCandidatesAddsCostTrendAndThesisReviews(
+	t *testing.T,
+) {
+	quantity := int64(100_000_000)
+	market := int64(75_000_000_000)
+	cost := int64(100_000_000_000)
+	returnBPS := int64(-2500)
+	return20D := -12.5
+	return60D := -18.0
+	ma20 := 80.0
+	ma60 := 90.0
+	drawdown := -32.0
+	volumeRatio := 1.7
+	valuation := portfolioCandidateValuation([]analysis.PositionValuation{
+		{
+			Instrument: models.Instrument{
+				Name:     "Apple",
+				Ticker:   "AAPL",
+				Currency: "USD",
+			},
+			Status:              models.DataStatusAvailable,
+			QuantityUnits:       &quantity,
+			Quantity:            "1",
+			AverageCost:         "1000",
+			Currency:            "USD",
+			LastPrice:           "750",
+			MarketValueUnits:    &market,
+			MarketValue:         "750",
+			CostBasisUnits:      &cost,
+			CostBasis:           "1000",
+			UnrealizedPL:        "-250",
+			UnrealizedReturnBPS: &returnBPS,
+			UnrealizedReturnPct: "-25.00",
+			MarketMetrics: analysis.PositionMarketMetrics{
+				ReturnPct20D:     &return20D,
+				ReturnPct60D:     &return60D,
+				MaxDrawdownPct6M: &drawdown,
+				MA20:             &ma20,
+				MA60:             &ma60,
+				VolumeRatio20D:   &volumeRatio,
+				Trend:            "below_ma20_and_ma60",
+			},
+			Issues: []analysis.PortfolioValuationIssue{},
+		},
+	})
+	report, err := EvaluatePortfolioCandidates(
+		valuation,
+		time.Now(),
+		DefaultPortfolioCandidateConfig(),
+	)
+	if err != nil {
+		t.Fatalf("evaluate decision candidates: %v", err)
+	}
+	loss := candidateByRule(
+		t,
+		report.Candidates,
+		"portfolio.position_loss_from_cost",
+	)
+	if loss.Severity != models.AlertSeverityWarning ||
+		loss.Evidence[0].Threshold != "-2000" ||
+		!strings.Contains(loss.Fact, "-25.00%") {
+		t.Fatalf("unexpected loss candidate: %#v", loss)
+	}
+	trend := candidateByRule(
+		t,
+		report.Candidates,
+		"portfolio.position_weak_trend",
+	)
+	if trend.Severity != models.AlertSeverityWatch ||
+		!strings.Contains(trend.Fact, "20일 이동평균") {
+		t.Fatalf("unexpected trend candidate: %#v", trend)
+	}
+	thesis := candidateByRule(
+		t,
+		report.Candidates,
+		"portfolio.position_thesis_missing",
+	)
+	if thesis.Severity != models.AlertSeverityInfo ||
+		len(thesis.ValidationQuestions) != 3 {
+		t.Fatalf("unexpected thesis candidate: %#v", thesis)
 	}
 }
 
@@ -172,6 +257,19 @@ func TestEvaluatePortfolioCandidatesRejectsVersionMismatch(t *testing.T) {
 	}
 }
 
+func TestEvaluatePortfolioCandidatesRejectsInvalidLossThresholds(t *testing.T) {
+	config := DefaultPortfolioCandidateConfig()
+	config.LossWarningThresholdBPS = -500
+	_, err := EvaluatePortfolioCandidates(
+		portfolioCandidateValuation(nil),
+		time.Now(),
+		config,
+	)
+	if err == nil || !strings.Contains(err.Error(), "loss thresholds") {
+		t.Fatalf("unexpected threshold validation result: %v", err)
+	}
+}
+
 func portfolioCandidateValuation(
 	positions []analysis.PositionValuation,
 ) analysis.PortfolioValuationReport {
@@ -218,6 +316,21 @@ func hasCandidateRule(
 		}
 	}
 	return false
+}
+
+func candidateByRule(
+	t *testing.T,
+	candidates []Candidate,
+	ruleID string,
+) Candidate {
+	t.Helper()
+	for _, candidate := range candidates {
+		if candidate.RuleID == ruleID {
+			return candidate
+		}
+	}
+	t.Fatalf("candidate rule %s not found", ruleID)
+	return Candidate{}
 }
 
 func int64Pointer(value int64) *int64 {

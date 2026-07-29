@@ -29,17 +29,23 @@ go run ./cmd/forgetmenot daily-email-report -test-alert -send
 
 ## 현재 규칙
 
-규칙 버전은 `portfolio-alert-candidates/v1`입니다.
+규칙 버전은 `portfolio-alert-candidates/v2`입니다.
 
 | 규칙 | 심각도 | 의미 |
 | --- | --- | --- |
 | `portfolio.position_concentration` | `watch` 또는 `warning` | 통화별 총 노출액 기준 단일 종목 비중이 설정 임계값 이상 |
+| `portfolio.position_loss_from_cost` | `watch` 또는 `warning` | 저장된 평균단가 대비 수익률이 기본 -10% 또는 -20% 임계값 이하 |
+| `portfolio.position_weak_trend` | `watch` | 최근가격이 20일·60일 이동평균을 모두 밑돌고 기간 수익률이 음수 |
+| `portfolio.position_thesis_missing` | `info` | 현재 보유종목에 투자 가설과 무효화 조건이 저장되지 않음 |
 | `portfolio.position_unvalued` | `watch` | 보유수량은 있지만 가격 등의 누락으로 평가금액 계산 불가 |
 | `portfolio.cost_basis_missing` | `info` | 평가금액은 있지만 평균 취득단가가 없어 원가와 손익 계산 불가 |
 | `portfolio.current_positions_missing` | `info` | 저장 종목 일부에 확인된 현재 포지션 스냅샷이 없음 |
 
 각 후보는 사실, 가능한 해석, 확인 질문과 계산 증거를 분리해 저장합니다. 후보는
 매수·매도 신호가 아니며 사용자가 먼저 검토할 데이터 품질 또는 위험 상태입니다.
+손실률과 이동평균 규칙도 매도 판단이 아니라 투자 가설과 반론을 다시 확인하게 하는
+관측 조건입니다. 집중도 후보의 재배분 참고액은 같은 통화 안에서 총노출을 유지하는
+기계적 계산이며 실제 주문 수량을 뜻하지 않습니다.
 
 ## 중복 억제
 
@@ -56,7 +62,7 @@ go run ./cmd/forgetmenot daily-email-report -test-alert -send
 ## 현재 한계
 
 - 자동 실행 스케줄러가 없습니다.
-- 실제 이메일 계정으로 전송을 검증하지 않았습니다.
+- 2026-07-29 수동 SMTP 테스트와 실제 pending 알림 전송을 검증했습니다.
 - 이메일 전달 이력과 실패 재시도 횟수를 별도 저장하지 않습니다.
 - 확인 완료 상태를 변경하는 명령이 없습니다.
 - quiet hours와 심각도별 채널 정책이 없습니다.
