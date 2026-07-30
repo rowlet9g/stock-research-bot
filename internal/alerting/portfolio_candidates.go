@@ -254,6 +254,21 @@ func concentrationCandidate(
 	severity models.AlertSeverity,
 	thresholdBPS int64,
 ) Candidate {
+	evidence := []CandidateEvidence{
+		{
+			Field:      "weight_bps",
+			Value:      fmt.Sprintf("%d", *position.WeightBPS),
+			Unit:       "bp",
+			Comparison: "greater_than_or_equal",
+			Threshold:  fmt.Sprintf("%d", thresholdBPS),
+			Basis:      "gross_market_value_within_currency",
+		},
+		{
+			Field: "gross_market_value",
+			Value: position.GrossMarketValue,
+			Unit:  position.Currency,
+		},
+	}
 	interpretation := "한 종목의 가격 변화가 같은 통화 포트폴리오 결과에 미치는 영향이 클 수 있다."
 	if len(position.RebalanceReferences) > 0 {
 		parts := make([]string, 0, len(position.RebalanceReferences))
@@ -264,6 +279,14 @@ func concentrationCandidate(
 				reference.ReallocationValue,
 				position.Currency,
 			))
+			evidence = append(evidence, CandidateEvidence{
+				Field:      "rebalance_reference",
+				Value:      reference.ReallocationValue,
+				Unit:       position.Currency,
+				Comparison: reference.TargetLabel,
+				Threshold:  reference.TargetWeightPct,
+				Basis:      reference.Basis,
+			})
 		}
 		interpretation += " " + strings.Join(parts, "; ") +
 			"이다. 이는 매도 지시가 아니라 총노출 유지 가정의 민감도 계산이다."
@@ -288,21 +311,7 @@ func concentrationCandidate(
 			"해당 종목의 투자 가설과 무효화 조건이 최신인가?",
 			"다른 통화 자산과 합산하지 않은 통화 내 비중이라는 점을 확인했는가?",
 		},
-		[]CandidateEvidence{
-			{
-				Field:      "weight_bps",
-				Value:      fmt.Sprintf("%d", *position.WeightBPS),
-				Unit:       "bp",
-				Comparison: "greater_than_or_equal",
-				Threshold:  fmt.Sprintf("%d", thresholdBPS),
-				Basis:      "gross_market_value_within_currency",
-			},
-			{
-				Field: "gross_market_value",
-				Value: position.GrossMarketValue,
-				Unit:  position.Currency,
-			},
-		},
+		evidence,
 	)
 }
 

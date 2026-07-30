@@ -14,10 +14,24 @@ func TestBuildDailyAlertReportSortsAndRendersFacts(t *testing.T) {
 	location := time.FixedZone("Asia/Seoul", 9*60*60)
 	generatedAt := time.Date(2026, 7, 28, 23, 30, 0, 0, time.UTC)
 	candidatePayload, err := json.Marshal(alerting.Candidate{
+		RuleID:                 "portfolio.position_concentration",
+		Kind:                   "portfolio_concentration",
+		Ticker:                 "AAPL",
+		Currency:               "USD",
 		PossibleInterpretation: "한 종목의 가격 변화가 포트폴리오 결과에 미치는 영향이 크다.",
 		ValidationQuestions: []string{
 			"이 비중이 의도한 위험 한도 안에 있는가?",
 			"투자 가설과 무효화 조건이 최신인가?",
+		},
+		Evidence: []alerting.CandidateEvidence{
+			{
+				Field:      "rebalance_reference",
+				Value:      "200",
+				Unit:       "USD",
+				Comparison: "high_threshold",
+				Threshold:  "40.00",
+				Basis:      "gross_market_value_within_currency",
+			},
 		},
 	})
 	if err != nil {
@@ -57,6 +71,8 @@ func TestBuildDailyAlertReportSortsAndRendersFacts(t *testing.T) {
 		report.Counts.Warning != 1 ||
 		report.Counts.Info != 1 ||
 		len(report.Alerts) != 2 ||
+		len(report.Sections) != 2 ||
+		report.Sections[0].Kind != "portfolio_concentration" ||
 		report.Alerts[0].AlertID != 1 {
 		t.Fatalf("unexpected daily report: %#v", report)
 	}
@@ -69,17 +85,22 @@ func TestBuildDailyAlertReportSortsAndRendersFacts(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"ForgetMeNot 일간 투자 점검",
-		"경고 1건 / 관찰 0건 / 정보 1건",
-		"[WARNING] 단일 종목 집중도 확인 필요",
-		"사실: AAPL의 USD 총 노출액 비중은 60.00%다.",
-		"가능한 해석: 한 종목의 가격 변화가 포트폴리오 결과에 미치는 영향이 크다.",
+		"경고 1건 / 관찰 0건 / 정보 1건 / 점검 주제 2개",
+		"[WARNING] 집중도와 리밸런싱",
+		"- AAPL의 USD 총 노출액 비중은 60.00%다.",
+		"리밸런싱 참고 계산:",
+		"AAPL: 40.00% 경계까지 200 USD",
 		"확인 질문:",
 		"- 이 비중이 의도한 위험 한도 안에 있는가?",
+		"분석 실행 ID: 11, 12",
 		"자동 매수·매도 지시가 아닙니다",
 	} {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("daily report body missing %q:\n%s", expected, body)
 		}
+	}
+	if strings.Contains(body, "발생 횟수:") {
+		t.Fatalf("daily report repeated event metadata:\n%s", body)
 	}
 	if subject := report.Subject(""); subject !=
 		"[ForgetMeNot] 일간 투자 점검 - 2026-07-29" {
@@ -107,6 +128,72 @@ func TestBuildDailyAlertReportHandlesEmptyAlerts(t *testing.T) {
 	}
 	if !strings.Contains(body, "미발송 알림이 없습니다") {
 		t.Fatalf("empty state missing:\n%s", body)
+	}
+}
+
+func TestBuildDailyAlertReportGroupsRepeatedKinds(t *testing.T) {
+	generatedAt := time.Date(2026, 7, 29, 12, 0, 0, 0, time.UTC)
+	payloads := make([]json.RawMessage, 0, 2)
+	for _, ticker := range []string{"AAPL", "NVDA"} {
+		payload, err := json.Marshal(alerting.Candidate{
+			RuleID:   "portfolio.position_weak_trend",
+			Kind:     "portfolio_price_review",
+			Ticker:   ticker,
+			Currency: "USD",
+			ValidationQuestions: []string{
+				"시장 전체 움직임과 비교했는가?",
+				"거래량 변화를 확인했는가?",
+			},
+		})
+		if err != nil {
+			t.Fatalf("encode %s payload: %v", ticker, err)
+		}
+		payloads = append(payloads, payload)
+	}
+	report, err := BuildDailyAlertReport(
+		[]models.Alert{
+			{
+				ID:              1,
+				Severity:        models.AlertSeverityWatch,
+				Status:          models.AlertStatusPending,
+				Title:           "중단기 가격 추세 약화 확인 필요",
+				Fact:            "AAPL의 가격이 이동평균을 밑돈다.",
+				Payload:         payloads[0],
+				OccurrenceCount: 1,
+				SourceRunID:     20,
+				LastDetectedAt:  generatedAt,
+			},
+			{
+				ID:              2,
+				Severity:        models.AlertSeverityWatch,
+				Status:          models.AlertStatusPending,
+				Title:           "중단기 가격 추세 약화 확인 필요",
+				Fact:            "NVDA의 가격이 이동평균을 밑돈다.",
+				Payload:         payloads[1],
+				OccurrenceCount: 1,
+				SourceRunID:     20,
+				LastDetectedAt:  generatedAt,
+			},
+		},
+		generatedAt,
+		time.UTC,
+	)
+	if err != nil {
+		t.Fatalf("build grouped report: %v", err)
+	}
+	if len(report.Alerts) != 2 ||
+		len(report.Sections) != 1 ||
+		len(report.Sections[0].Alerts) != 2 ||
+		len(report.Sections[0].ValidationQuestions) != 2 {
+		t.Fatalf("unexpected grouped report: %#v", report)
+	}
+	body, err := report.TextBody(time.UTC)
+	if err != nil {
+		t.Fatalf("render grouped report: %v", err)
+	}
+	if strings.Count(body, "중단기 가격 추세 (알림 2건)") != 1 ||
+		strings.Count(body, "시장 전체 움직임과 비교했는가?") != 1 {
+		t.Fatalf("repeated section content was not deduplicated:\n%s", body)
 	}
 }
 

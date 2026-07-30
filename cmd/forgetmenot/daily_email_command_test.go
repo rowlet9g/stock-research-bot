@@ -81,7 +81,7 @@ func TestDailyEmailReportSendsAndMarksPendingAlerts(t *testing.T) {
 		result.Delivery.RecipientCount != 1 ||
 		len(result.Report.Alerts) != 1 ||
 		fake.Calls != 1 ||
-		!strings.Contains(result.Body, "단일 종목 집중도") ||
+		!strings.Contains(result.Body, "집중도와 리밸런싱") ||
 		!strings.Contains(
 			fake.Content,
 			"Content-Type: text/plain; charset=UTF-8",

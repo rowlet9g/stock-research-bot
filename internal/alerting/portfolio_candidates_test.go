@@ -35,8 +35,17 @@ func TestEvaluatePortfolioCandidatesBuildsStableConcentrationAlerts(
 			WeightBPS:             &weightA,
 			WeightPct:             "60.00",
 			Concentration:         analysis.ConcentrationHigh,
-			Thesis:                &models.Thesis{Summary: "services growth"},
-			Issues:                []analysis.PortfolioValuationIssue{},
+			RebalanceReferences: []analysis.RebalanceReference{
+				{
+					TargetLabel:       "high_threshold",
+					TargetWeightBPS:   4000,
+					TargetWeightPct:   "40.00",
+					ReallocationValue: "200",
+					Basis:             "gross_market_value_within_currency",
+				},
+			},
+			Thesis: &models.Thesis{Summary: "services growth"},
+			Issues: []analysis.PortfolioValuationIssue{},
 		},
 		{
 			Instrument: models.Instrument{
@@ -78,8 +87,10 @@ func TestEvaluatePortfolioCandidatesBuildsStableConcentrationAlerts(
 	if apple.Severity != models.AlertSeverityWarning ||
 		apple.RuleID != "portfolio.position_concentration" ||
 		apple.Fingerprint == "" ||
-		len(apple.Evidence) != 2 ||
-		apple.Evidence[0].Threshold != "4000" {
+		len(apple.Evidence) != 3 ||
+		apple.Evidence[0].Threshold != "4000" ||
+		apple.Evidence[2].Field != "rebalance_reference" ||
+		apple.Evidence[2].Value != "200" {
 		t.Fatalf("unexpected concentration candidate: %#v", apple)
 	}
 
