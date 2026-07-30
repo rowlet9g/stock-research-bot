@@ -13,6 +13,11 @@ const PortfolioResponseReportVersion = "portfolio-response-report/v1"
 
 const minPortfolioResponseRunes = 200
 
+const (
+	PortfolioResponseOriginManualChatGPTPlus = "manual_chatgpt_plus_import"
+	PortfolioResponseOriginCodexChatGPT      = "codex_cli_chatgpt"
+)
+
 type PortfolioResponseReportInput struct {
 	AnalysisRunID          int64
 	AnalysisRunKind        string
@@ -20,6 +25,7 @@ type PortfolioResponseReportInput struct {
 	InputSHA256            string
 	AnalysisOutputSHA256   string
 	PromptSHA256           string
+	ResponseOrigin         string
 	Response               string
 }
 
@@ -50,6 +56,10 @@ func BuildPortfolioResponseReport(
 		strings.TrimSpace(input.AnalysisOutputSHA256),
 	)
 	input.PromptSHA256 = strings.ToLower(strings.TrimSpace(input.PromptSHA256))
+	input.ResponseOrigin = strings.TrimSpace(input.ResponseOrigin)
+	if input.ResponseOrigin == "" {
+		input.ResponseOrigin = PortfolioResponseOriginManualChatGPTPlus
+	}
 	response, responseErr := ValidatePortfolioResponse(input.Response)
 	switch {
 	case generatedAt.IsZero():
@@ -86,6 +96,11 @@ func BuildPortfolioResponseReport(
 		return PortfolioResponseReport{}, fmt.Errorf(
 			"portfolio response prompt SHA-256 is invalid",
 		)
+	case !validPortfolioResponseOrigin(input.ResponseOrigin):
+		return PortfolioResponseReport{}, fmt.Errorf(
+			"portfolio response origin %q is invalid",
+			input.ResponseOrigin,
+		)
 	case responseErr != nil:
 		return PortfolioResponseReport{}, responseErr
 	}
@@ -103,7 +118,7 @@ func BuildPortfolioResponseReport(
 		AnalysisOutputSHA256:   input.AnalysisOutputSHA256,
 		PromptSHA256:           input.PromptSHA256,
 		ResponseSHA256:         hex.EncodeToString(responseHash[:]),
-		ResponseOrigin:         "manual_chatgpt_plus_import",
+		ResponseOrigin:         input.ResponseOrigin,
 		Response:               response,
 	}, nil
 }
@@ -153,7 +168,7 @@ func (r PortfolioResponseReport) TextBody(
 			"분석 payload SHA-256: %s\n"+
 			"프롬프트 SHA-256: %s\n"+
 			"응답 SHA-256: %s\n"+
-			"응답 반입 방식: %s\n\n",
+			"응답 생성/반입 방식: %s\n\n",
 		r.ReportDate,
 		r.GeneratedAt.In(location).Format(time.RFC3339),
 		r.TimeZone,
@@ -165,11 +180,20 @@ func (r PortfolioResponseReport) TextBody(
 		r.ResponseSHA256,
 		r.ResponseOrigin,
 	)
-	builder.WriteString(
-		"주의: 아래 내용은 사용자가 ChatGPT Plus 응답으로 저장한 파일을 " +
-			"가져온 것입니다. ForgetMeNot은 응답의 모델, 대화 ID, 사실 정확성을 " +
-			"독립적으로 검증하지 않았습니다.\n\n",
-	)
+	switch r.ResponseOrigin {
+	case PortfolioResponseOriginCodexChatGPT:
+		builder.WriteString(
+			"주의: 아래 내용은 ChatGPT 계정으로 인증된 Codex CLI가 생성한 " +
+				"응답입니다. ForgetMeNot은 응답의 사실 정확성을 독립적으로 " +
+				"검증하지 않았습니다.\n\n",
+		)
+	default:
+		builder.WriteString(
+			"주의: 아래 내용은 사용자가 ChatGPT Plus 응답으로 저장한 파일을 " +
+				"가져온 것입니다. ForgetMeNot은 응답의 모델, 대화 ID, 사실 정확성을 " +
+				"독립적으로 검증하지 않았습니다.\n\n",
+		)
+	}
 	builder.WriteString("상세 분석\n\n")
 	builder.WriteString(r.Response)
 	builder.WriteString(
@@ -215,4 +239,14 @@ func validReportSHA256(value string) bool {
 	}
 	decoded, err := hex.DecodeString(value)
 	return err == nil && len(decoded) == sha256.Size
+}
+
+func validPortfolioResponseOrigin(value string) bool {
+	switch value {
+	case PortfolioResponseOriginManualChatGPTPlus,
+		PortfolioResponseOriginCodexChatGPT:
+		return true
+	default:
+		return false
+	}
 }

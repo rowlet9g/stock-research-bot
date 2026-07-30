@@ -13,7 +13,7 @@ DART 공시/재무 정보와 Yahoo Finance 시세 데이터를 결합해 투자 
 - [분석 실행 이력](docs/ANALYSIS_RUNS.md): 입력·규칙·출력 해시 기반 SQLite 이력
 - [알림 후보](docs/ALERTS.md): 포트폴리오 사건 판정, 중복 억제와 이메일 상태 전이
 - [일간 이메일 보고서](docs/EMAIL_REPORTS.md): SMTP 설정, 미리보기, 전송과 운영 한계
-- [포트폴리오 상세 분석 이메일](docs/PORTFOLIO_RESPONSE_EMAIL.md): ChatGPT Plus 답변 파일의 반자동 검증과 전송
+- [Codex 포트폴리오 분석 이메일](docs/PORTFOLIO_RESPONSE_EMAIL.md): ChatGPT 로그인 기반 자동 분석과 전송
 - [저장소 작업 지침](AGENTS.md): 구현, 보안, 테스트, 검증 및 Git 규칙
 - [Go 포팅 현황](README_GO.md): 현재 Go CLI 범위와 실행 방법
 
@@ -69,6 +69,7 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 집중도와 데이터 품질 알림 후보의 결정론적 생성 및 중복 억제 저장
 - TLS SMTP 기반 일간 알림 보고서 미리보기와 명시적 이메일 전송
 - ChatGPT Plus 답변 파일과 분석 실행 해시를 연결한 상세 분석 이메일 전송
+- ChatGPT 로그인 상태의 Codex CLI를 이용한 포트폴리오 분석·저장·메일 자동 연결
 
 ## 개발 환경 준비
 
@@ -101,7 +102,10 @@ OpenDART를 사용하려면 `.env.example`을 `.env`로 복사한 뒤
 `OPENDART_API_KEY`를 설정합니다. KRX 종목 마스터를 사용하려면 같은 파일에
 `KRX_API_KEY`를 설정합니다. API 키는 로그, 출처 URL, Git에 기록하지 않습니다.
 
-`OPENAI_API_KEY` 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰는 흐름은 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식으로 둡니다.
+`OPENAI_API_KEY`를 사용하는 Platform API 자동 호출은 Go 포트에 넣지 않았습니다.
+대신 `portfolio-codex-email`이 ChatGPT로 로그인된 공식 Codex CLI를 비대화형으로
+실행합니다. 이 명령은 API 키 환경변수를 Codex 자식 프로세스에 전달하지 않으며
+로그인한 ChatGPT 플랜의 Codex 사용량 한도를 사용합니다.
 
 ## SQLite와 투자 기록
 
@@ -139,6 +143,8 @@ go run ./cmd/forgetmenot daily-email-report -test-alert -send
 go run ./cmd/forgetmenot daily-email-report -send
 go run ./cmd/forgetmenot portfolio-response-email -run-id 1 -file data/reports/portfolio-response.md
 go run ./cmd/forgetmenot portfolio-response-email -run-id 1 -file data/reports/portfolio-response.md -send
+go run ./cmd/forgetmenot portfolio-codex-email
+go run ./cmd/forgetmenot portfolio-codex-email -send
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -255,8 +261,8 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 
 프롬프트는 계산된 가격·재무비율을 AI가 임의로 다시 계산하지 않게 하고, 공시 제목과
 투자 가설 안의 문장을 명령이 아닌 데이터로만 취급하도록 지시합니다. OpenAI API를
-호출하지 않으므로 ChatGPT Plus에 수동으로 붙여넣는 현재 흐름에서는 별도 API 사용료가
-발생하지 않습니다.
+호출하지 않습니다. `research-brief`의 text 출력은 수동 분석용이고,
+포트폴리오 자동 분석은 별도 `portfolio-codex-email` 명령이 담당합니다.
 
 `position-reconcile`은 저장된 전체 종목 또는 `-ticker`로 지정한 한 종목에서
 매수수량, 매도수량과 거래기간 순증을 계산하고 현재 `positions` 기록과 대조합니다.
@@ -319,8 +325,14 @@ payload를 조회할 수 있습니다. 자세한 정책은
 메일 미리보기이고 `-send`를 명시한 경우에만 기존 SMTP 설정으로 전송합니다.
 OpenAI API를 호출하지 않으며 원본 입력, 프롬프트와 답변의 SHA-256을 메일에
 기록합니다. 실제 모델과 답변 정확성은 검증할 수 없으므로 사용자가 확인해야 합니다.
-자세한 절차는
-[포트폴리오 상세 분석 이메일](docs/PORTFOLIO_RESPONSE_EMAIL.md)을 참고하세요.
+이 명령은 Codex CLI를 사용할 수 없을 때의 수동 예비 경로입니다.
+
+`portfolio-codex-email`은 새 포트폴리오 브리핑 생성과 분석 실행 저장,
+ChatGPT로 인증된 Codex CLI 분석, 응답 파일 저장과 이메일 미리보기를 한 번에
+수행합니다. `-send`를 붙인 경우에만 기존 SMTP 설정으로 전송합니다. 별도 ChatGPT
+창, 프롬프트 복사 또는 메모장 작업은 필요하지 않습니다. 인증과 실행 제한,
+추적 해시 및 수동 예비 경로는
+[Codex 포트폴리오 분석 이메일](docs/PORTFOLIO_RESPONSE_EMAIL.md)을 참고하세요.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해

@@ -45,8 +45,11 @@
 - 해시 기반 분석 실행 이력과 명시적 포트폴리오 브리핑 저장
 - 포트폴리오 집중도 및 데이터 품질 알림 후보의 중복 억제 저장과 조회
 - TLS SMTP 기반 일간 알림 보고서 미리보기와 명시적 전송
+- ChatGPT 로그인 기반 Codex CLI 포트폴리오 분석과 이메일 자동 연결
 
-OpenAI API 자동 호출은 아직 Go 포트에 넣지 않았습니다. Plus 요금제 안에서 쓰려면 앱이 프롬프트를 생성하고 사용자가 ChatGPT에 붙여넣는 방식이 추가 과금 없이 가장 안전합니다.
+OpenAI Platform API 키를 사용하는 자동 호출은 넣지 않았습니다.
+`portfolio-codex-email`은 ChatGPT로 로그인된 공식 Codex CLI를 비대화형으로
+실행하며 API 키 환경변수를 자식 프로세스에서 제거합니다.
 
 ## 실행
 
@@ -88,6 +91,8 @@ go run ./cmd/forgetmenot daily-email-report
 go run ./cmd/forgetmenot daily-email-report -test-alert -send
 go run ./cmd/forgetmenot daily-email-report -send
 go run ./cmd/forgetmenot portfolio-response-email -run-id 1 -file data/reports/portfolio-response.md
+go run ./cmd/forgetmenot portfolio-codex-email
+go run ./cmd/forgetmenot portfolio-codex-email -send
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
 
@@ -162,7 +167,11 @@ JSON 출력에서는 원본 평가·시나리오와 프롬프트 해시를 함�
 `portfolio-response-email`은 ChatGPT Plus 답변 파일을 저장된
 `portfolio_brief` 실행과 연결해 미리보기하거나 SMTP로 전송합니다. 원본 입력,
 분석 payload, 프롬프트와 답변의 SHA-256을 기록하며 OpenAI API는 호출하지
-않습니다. 반자동 실행 절차는
+않습니다. 이 명령은 Codex CLI를 사용할 수 없을 때의 수동 예비 경로입니다.
+
+`portfolio-codex-email`은 포트폴리오 브리핑 생성과 저장, ChatGPT 로그인 상태
+검증, Codex 분석, 응답 파일 저장과 메일 미리보기를 한 명령으로 수행합니다.
+`-send`를 지정한 경우에만 SMTP로 전송합니다. 자세한 자동 실행과 예비 절차는
 [`docs/PORTFOLIO_RESPONSE_EMAIL.md`](docs/PORTFOLIO_RESPONSE_EMAIL.md)에
 정리했습니다.
 

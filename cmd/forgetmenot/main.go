@@ -100,6 +100,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runDailyEmailReport(args[1:], stdout, stderr)
 		case "portfolio-response-email":
 			return runPortfolioResponseEmail(args[1:], stdout, stderr)
+		case "portfolio-codex-email":
+			return runPortfolioCodexEmail(args[1:], stdout, stderr)
 		case "krx-instrument-sync":
 			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":

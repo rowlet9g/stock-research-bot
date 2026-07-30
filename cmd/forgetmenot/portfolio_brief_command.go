@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -86,94 +85,40 @@ func runPortfolioBrief(
 	defer store.Close()
 
 	generatedAt := portfolioBriefNow()
-	valuation, err := buildPortfolioValuation(
+	result, err := buildPortfolioBriefResult(
 		ctx,
 		store,
-		*ticker,
-		*workers,
-		generatedAt,
-		analysis.DefaultPortfolioValuationConfig(),
-	)
-	if err != nil {
-		return writeRuntimeFailure(
-			*outputFormat,
-			stdout,
-			stderr,
-			"portfolio_valuation",
-			err,
-		)
-	}
-	scenarioConfig := analysis.DefaultPortfolioScenarioConfig()
-	scenarioConfig.DownsideReturnBPS = *downsideBPS
-	scenarioConfig.UpsideReturnBPS = *upsideBPS
-	scenarios, err := analysis.StressPortfolio(
-		valuation,
-		generatedAt,
-		scenarioConfig,
-	)
-	if err != nil {
-		return writeRuntimeFailure(
-			*outputFormat,
-			stdout,
-			stderr,
-			"portfolio_scenarios",
-			err,
-		)
-	}
-	brief, err := prompt.BuildPortfolioResearchBrief(
-		prompt.PortfolioResearchBriefInput{
-			Valuation:    valuation,
-			Scenarios:    scenarios,
-			UserQuestion: resolvedQuestion,
+		portfolioBriefBuildRequest{
+			Ticker:      *ticker,
+			Workers:     *workers,
+			DownsideBPS: *downsideBPS,
+			UpsideBPS:   *upsideBPS,
+			Question:    resolvedQuestion,
+			GeneratedAt: generatedAt,
 		},
 	)
 	if err != nil {
+		scope, cause := portfolioBriefFailure(err)
 		return writeRuntimeFailure(
 			*outputFormat,
 			stdout,
 			stderr,
-			"portfolio_prompt",
-			err,
+			scope,
+			cause,
 		)
-	}
-	result := portfolioBriefCommandResult{
-		Valuation: valuation,
-		Scenarios: scenarios,
-		Brief:     brief,
 	}
 	if *saveRun {
-		payload, err := json.Marshal(result)
+		result, err = savePortfolioBriefResult(ctx, store, result)
 		if err != nil {
+			scope, cause := portfolioBriefFailure(err)
 			return writeRuntimeFailure(
 				*outputFormat,
 				stdout,
 				stderr,
-				"analysis_run",
-				fmt.Errorf("encode portfolio brief run: %w", err),
+				scope,
+				cause,
 			)
 		}
-		run, duplicate, err := store.SaveAnalysisRun(
-			ctx,
-			sqlitestore.AnalysisRunInput{
-				Kind:        portfolioBriefAnalysisKind,
-				Status:      scenarios.Status,
-				InputSHA256: brief.ValuationSHA256,
-				RuleVersion: brief.Version,
-				Payload:     payload,
-				GeneratedAt: brief.GeneratedAt,
-			},
-		)
-		if err != nil {
-			return writeRuntimeFailure(
-				*outputFormat,
-				stdout,
-				stderr,
-				"analysis_run",
-				err,
-			)
-		}
-		result.AnalysisRun = &run
-		result.AlreadySaved = duplicate
 	}
 	if *outputFormat == "json" {
 		if err := writeJSON(stdout, result); err != nil {
@@ -181,7 +126,7 @@ func runPortfolioBrief(
 		}
 		return 0
 	}
-	if _, err := fmt.Fprint(stdout, brief.Prompt); err != nil {
+	if _, err := fmt.Fprint(stdout, result.Brief.Prompt); err != nil {
 		return writeRuntimeFailure("text", stdout, stderr, "output", err)
 	}
 	return 0

@@ -18,11 +18,13 @@ ForgetMeNot은 `pending` 상태의 알림 후보를 모아 일간 투자 점검 
 자동 실행 스케줄은 아직 등록하지 않습니다. 실제 계정으로 한 번 전송해 본 뒤
 사용자가 원하는 발송시각을 정하고 Windows 작업 스케줄러를 연결합니다.
 
-일간 이메일은 결정론적 알림 보고서입니다. ChatGPT Plus가 작성한 투자 분석
-답변을 자동으로 가져오는 기능은 아닙니다. 상세 분석 답변은 사용자가 파일로
-저장한 뒤 `portfolio-response-email`로 미리보기하거나 전송할 수 있습니다.
-자세한 절차는 [포트폴리오 상세 분석 응답 이메일](PORTFOLIO_RESPONSE_EMAIL.md)을
-참고하세요. 화면 조작 없는 완전 자동화에는 별도 API 또는 로컬 모델이 필요합니다.
+`daily-email-report` 자체는 결정론적 알림 보고서이며 AI 분석을 수행하지 않습니다.
+상세 분석은 ChatGPT 로그인 기반 `portfolio-codex-email`이 새 포트폴리오
+브리핑부터 Codex 응답 생성과 이메일까지 자동으로 연결합니다.
+`portfolio-response-email`은 사용자가 만든 답변 파일을 보내는 수동 예비
+경로입니다. 자세한 절차는
+[Codex 구독 기반 포트폴리오 분석 이메일](PORTFOLIO_RESPONSE_EMAIL.md)을
+참고하세요.
 
 메일 본문은 원본 알림 수와 별개로 아래 주제별 섹션을 한 번씩만 출력합니다.
 

@@ -1,97 +1,123 @@
-# 포트폴리오 상세 분석 응답 이메일
+# Codex 구독 기반 포트폴리오 분석 이메일
 
-`portfolio-response-email`은 `portfolio-brief`가 만든 프롬프트를 ChatGPT Plus에서
-수동으로 분석한 뒤, 그 답변을 Markdown 또는 텍스트 파일로 가져와 이메일로
-미리보기하거나 전송하는 반자동 명령입니다. OpenAI API를 호출하지 않으므로
-ChatGPT Plus 외의 API 사용료는 발생하지 않습니다.
+`portfolio-codex-email`은 포트폴리오 가격 수집, 평가와 시나리오 생성, 분석 실행
+저장, Codex 분석, 응답 파일 저장과 이메일 전송을 한 명령으로 연결합니다. 별도의
+ChatGPT 대화, 프롬프트 복사, 메모장 붙여넣기는 필요하지 않습니다.
+
+이 명령은 OpenAI Platform API를 직접 호출하지 않습니다. 실행 직전에 Codex CLI의
+인증 상태가 `Logged in using ChatGPT`인지 확인하고, 자식 프로세스에서
+`OPENAI_API_KEY`와 `CODEX_API_KEY`를 제거합니다. 따라서 Platform API 키 기반
+사용량 과금 경로를 사용하지 않고 로그인한 ChatGPT 플랜의 Codex 사용량 한도를
+사용합니다.
+
+- [Codex 인증](https://developers.openai.com/codex/auth)
+- [Codex 비대화형 실행](https://developers.openai.com/codex/noninteractive)
+
+## 준비
+
+공식 Codex CLI를 설치하고 ChatGPT 계정으로 로그인합니다.
+
+```powershell
+npm install -g @openai/codex
+codex login
+codex login status
+```
+
+마지막 명령의 결과가 `Logged in using ChatGPT`여야 합니다. API 키 로그인 상태나
+로그아웃 상태에서는 `portfolio-codex-email`이 분석을 시작하지 않습니다.
+
+이메일 전송에는 기존 [일간 이메일 보고서](EMAIL_REPORTS.md)의 SMTP 설정을
+그대로 사용합니다. 미리보기에는 SMTP 설정이 필요하지 않습니다.
+
+## 실행
+
+분석 결과를 만들고 로컬 파일에 저장한 뒤 메일 본문을 미리보기합니다.
+
+```powershell
+go run ./cmd/forgetmenot portfolio-codex-email
+```
+
+내용을 실제 이메일로 보내려면 `-send`만 추가합니다.
+
+```powershell
+go run ./cmd/forgetmenot portfolio-codex-email -send
+```
+
+기본 질문은 `prompts/portfolio_review.md`에서 읽습니다. 일회성 질문이나 다른
+질문 파일도 지정할 수 있습니다.
+
+```powershell
+go run ./cmd/forgetmenot portfolio-codex-email `
+  -question "현재 포트폴리오에서 가장 먼저 재검토할 가설은?" `
+  -send
+
+go run ./cmd/forgetmenot portfolio-codex-email `
+  -question-file prompts/portfolio_review.md `
+  -codex-reasoning high `
+  -output json
+```
+
+Codex 분석 제한시간은 기본 10분이며 `-codex-timeout`으로 30초에서 30분 사이로
+조정할 수 있습니다. 기본 응답 파일은
+`data/reports/portfolio-response-latest.md`이고 Git에서 제외됩니다.
 
 ## 처리 흐름
 
 ```text
-portfolio-brief -save
-  -> 저장된 분석 실행 ID와 프롬프트
-  -> 사용자가 ChatGPT Plus에 프롬프트 입력
-  -> 답변을 로컬 파일로 저장
-  -> portfolio-response-email 미리보기
+저장된 포지션
+  -> Yahoo 가격 수집
+  -> 포트폴리오 평가와 시나리오
+  -> portfolio_brief 분석 실행 저장
+  -> 격리된 임시 디렉터리에서 codex exec 실행
+  -> 응답 형식과 프롬프트 오반입 검증
+  -> data/reports 응답 파일 저장
+  -> 보고서 미리보기
   -> -send를 지정한 경우 SMTP 전송
 ```
 
-ForgetMeNot은 저장된 `portfolio_brief` 실행의 payload와 해시를 검증하고, 답변
-파일을 해당 실행 ID에 연결합니다. 메일에는 아래 추적 정보를 포함합니다.
+Codex는 `--ephemeral`, `--ignore-user-config`, `--sandbox read-only`로 실행합니다.
+저장소 대신 빈 임시 디렉터리를 작업 위치로 사용하며 웹 검색, 셸 명령과 파일 접근을
+하지 말라는 분석 전용 지시를 전달합니다. 포트폴리오 사실은 생성된 프롬프트
+본문으로만 전달됩니다.
+
+메일과 JSON 결과에는 아래 추적 정보를 포함합니다.
 
 - 원본 분석 실행 ID와 생성시각
 - 포트폴리오 입력 SHA-256
 - 저장된 분석 payload SHA-256
 - 프롬프트 SHA-256
-- 정규화한 답변 본문의 SHA-256
-- `manual_chatgpt_plus_import` 반입 방식
+- 정규화한 응답 본문의 SHA-256
+- `codex_cli_chatgpt` 응답 생성 방식
 
-답변 파일만으로 실제 ChatGPT 모델, 대화 ID와 답변의 사실 정확성을 검증할 수는
-없습니다. 이 한계는 메일 본문에도 표시됩니다.
+## 검증 및 보안 규칙
 
-## PowerShell 실행
+- 분석 전에 새 가격 스냅샷과 포트폴리오 브리핑을 생성하고 SQLite에 저장합니다.
+- Codex 응답은 200자 이상, 최대 256 KiB여야 합니다.
+- 입력 프롬프트를 그대로 되돌린 응답과 클립보드 캡처 명령은 거부합니다.
+- 응답이 검증되고 파일 저장까지 성공한 뒤에만 이메일을 만듭니다.
+- `-send`를 지정하면 SMTP 설정을 분석 시작 전에 검증합니다.
+- `-send`가 없으면 이메일을 전송하지 않습니다.
+- 메일은 UTF-8 평문이며 Markdown을 HTML로 렌더링하지 않습니다.
+- Codex 답변은 투자 참고 자료입니다. 사실 정확성이나 미래 수익을 보장하지 않습니다.
+- 같은 명령을 다시 `-send`하면 별도의 이메일이 다시 발송될 수 있습니다.
 
-먼저 보고서 디렉터리를 만들고 포트폴리오 분석 실행과 프롬프트를 각각 저장합니다.
-프롬프트는 클립보드를 거치지 않습니다.
+## 수동 예비 경로
 
-```powershell
-New-Item -ItemType Directory -Force data\reports
-
-$brief = go run ./cmd/forgetmenot portfolio-brief -save -output json | ConvertFrom-Json
-$runId = $brief.analysis_run.id
-$brief.brief.prompt |
-  Set-Content -LiteralPath data\reports\portfolio-prompt.md -Encoding utf8
-$runId
-```
-
-`data/reports/portfolio-prompt.md`를 ChatGPT Plus에 첨부하거나 파일 내용을
-입력합니다. 답변을 받기 전에 별도의 응답 파일을 편집기로 열어 둡니다.
-
-```powershell
-notepad data\reports\portfolio-response.md
-```
-
-그다음 ChatGPT 답변 전체를 복사하고 이미 열어 둔 편집기에 붙여넣은 뒤 저장합니다.
-답변을 복사한 다음 `Get-Clipboard | Set-Content` 명령을 다시 복사해 실행하면
-클립보드가 명령문으로 덮일 수 있으므로 이 방식을 사용하지 않습니다.
-
-먼저 메일 본문을 미리보기합니다. 미리보기에는 SMTP 설정이 필요하지 않습니다.
+`portfolio-response-email`은 Codex CLI를 사용할 수 없는 환경을 위한 예비
+명령입니다. 사용자가 직접 만든 응답 파일과 저장된 `portfolio_brief` 실행 ID를
+연결해 미리보기하거나 전송합니다.
 
 ```powershell
 go run ./cmd/forgetmenot portfolio-response-email `
-  -run-id $runId `
+  -run-id 1 `
   -file data/reports/portfolio-response.md
 ```
 
-내용과 분석 실행 ID가 맞으면 `.env`의 기존 SMTP 설정으로 전송합니다.
-
-```powershell
-go run ./cmd/forgetmenot portfolio-response-email `
-  -run-id $runId `
-  -file data/reports/portfolio-response.md `
-  -send
-```
-
-프로그램에서 결과를 읽어야 하면 `-output json`을 추가합니다.
-
-## 입력 및 보안 규칙
-
-- `-run-id`는 저장된 `portfolio_brief` 분석 실행이어야 합니다.
-- 답변 파일은 UTF-8 Markdown 또는 평문을 사용합니다.
-- 빈 파일과 200자 미만의 응답은 거부하며 최대 크기는 256 KiB입니다.
-- `Get-Clipboard`와 `Set-Content` 캡처 명령이 답변 대신 들어간 파일은 거부합니다.
-- 원본 프롬프트와 내용이 같은 파일은 답변으로 전송하지 않습니다.
-- 줄바꿈은 해시 계산 전에 LF로 정규화합니다.
-- 메일은 HTML이 아닌 UTF-8 평문으로 전송합니다.
-- `data/reports/`는 Git에서 제외합니다.
-- `-send`를 명시하지 않으면 실제 이메일을 보내지 않습니다.
-- 현재 전송 이력을 별도로 저장하지 않으므로 같은 명령을 다시 `-send`하면 중복
-  메일이 발송될 수 있습니다.
+이 경로는 자동 BOT 흐름이 아니며 기본 운영 방식으로 사용하지 않습니다.
 
 ## 현재 한계
 
-- ChatGPT Plus 화면이나 대화 내용을 자동으로 읽지 않습니다.
-- 답변의 인용 출처가 실제로 유효한지 자동 검증하지 않습니다.
-- Markdown을 HTML 이메일로 렌더링하지 않습니다.
-- 답변 파일과 분석 실행의 의미적 일치 여부는 사용자가 확인해야 합니다.
-- 완전 자동화에는 별도 과금 API 또는 로컬 모델 연동이 필요합니다.
+- ChatGPT 플랜별 Codex 사용량 한도와 일시적인 서비스 제한의 영향을 받습니다.
+- 답변의 사실 정확성과 인용 출처 유효성을 자동 검증하지 않습니다.
+- 현재 전송 이력을 별도 테이블에 저장하지 않습니다.
+- 뉴스, SEC, FRED, 검증된 환율 데이터가 아직 없으면 해당 판단은 보류됩니다.
