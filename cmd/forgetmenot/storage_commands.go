@@ -526,7 +526,18 @@ func runThesisSet(args []string, stdout io.Writer, stderr io.Writer) int {
 	databasePath := flags.String("db", defaultDatabasePath, "SQLite database path")
 	ticker := flags.String("ticker", "", "instrument ticker")
 	summary := flags.String("summary", "", "investment thesis")
+	category := flags.String("category", "", "portfolio allocation category")
+	protectedQuantity := flags.String(
+		"protected-quantity",
+		"0",
+		"quantity excluded from reduction review",
+	)
 	invalidation := flags.String("invalidation", "", "thesis invalidation condition")
+	increaseCondition := flags.String(
+		"increase-condition",
+		"",
+		"condition required before increasing the position",
+	)
 	horizon := flags.String("horizon", "", "expected holding period")
 	metricsText := flags.String("metrics", "", "comma-separated check metrics")
 	outputFormat := flags.String("output", "text", "output format: text or json")
@@ -542,6 +553,14 @@ func runThesisSet(args []string, stdout io.Writer, stderr io.Writer) int {
 	if strings.TrimSpace(*summary) == "" {
 		return commandInputError(*outputFormat, stdout, stderr, "thesis summary is required")
 	}
+	protectedQuantityUnits, err := decimal.Parse(*protectedQuantity)
+	if err != nil || protectedQuantityUnits < 0 {
+		message := "protected-quantity must be a non-negative decimal"
+		if err != nil {
+			message += ": " + err.Error()
+		}
+		return commandInputError(*outputFormat, stdout, stderr, message)
+	}
 
 	metrics := []string{}
 	if strings.TrimSpace(*metricsText) != "" {
@@ -555,13 +574,18 @@ func runThesisSet(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	defer store.Close()
 
-	thesis, err := store.UpsertThesis(
+	thesis, err := store.UpsertThesisDetails(
 		ctx,
 		*ticker,
-		*summary,
-		*invalidation,
-		*horizon,
-		metrics,
+		sqlitestore.ThesisInput{
+			AllocationCategory:     *category,
+			ProtectedQuantityUnits: protectedQuantityUnits,
+			Summary:                *summary,
+			InvalidationCondition:  *invalidation,
+			IncreaseCondition:      *increaseCondition,
+			ExpectedHoldingPeriod:  *horizon,
+			CheckMetrics:           metrics,
+		},
 	)
 	if err != nil {
 		return writeRuntimeFailure(*outputFormat, stdout, stderr, "storage", err)
@@ -634,7 +658,22 @@ func runPortfolioShow(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "Thesis: N/A")
 	} else {
 		fmt.Fprintf(stdout, "Thesis: %s\n", view.Thesis.Summary)
+		fmt.Fprintf(
+			stdout,
+			"Allocation category: %s\n",
+			valueOrNA(view.Thesis.AllocationCategory),
+		)
+		fmt.Fprintf(
+			stdout,
+			"Protected quantity: %s\n",
+			decimal.Format(view.Thesis.ProtectedQuantityUnits),
+		)
 		fmt.Fprintf(stdout, "Invalidation: %s\n", valueOrNA(view.Thesis.InvalidationCondition))
+		fmt.Fprintf(
+			stdout,
+			"Increase condition: %s\n",
+			valueOrNA(view.Thesis.IncreaseCondition),
+		)
 		fmt.Fprintf(stdout, "Horizon: %s\n", valueOrNA(view.Thesis.ExpectedHoldingPeriod))
 		fmt.Fprintf(stdout, "Check metrics: %s\n", strings.Join(view.Thesis.CheckMetrics, ", "))
 	}

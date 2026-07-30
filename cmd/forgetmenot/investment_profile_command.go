@@ -104,3 +104,23 @@ func syncInvestmentProfile(
 	}
 	return store.SyncTheses(ctx, rows)
 }
+
+func loadOptionalInvestmentProfile(
+	path string,
+) (*investmentprofile.Profile, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, nil
+	}
+	profile, found, err := investmentprofile.LoadIfExists(path)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		if path == defaultInvestmentProfilePath {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("investment profile %q does not exist", path)
+	}
+	return &profile, nil
+}

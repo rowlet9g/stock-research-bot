@@ -35,6 +35,7 @@ type Policy struct {
 	TargetAnnualReturnPercent ReturnTarget `json:"target_annual_return_percent"`
 	Allocations               []Allocation `json:"allocations"`
 	ReviewRules               []string     `json:"review_rules"`
+	ResearchPreferences       []string     `json:"research_preferences"`
 }
 
 type Thesis struct {
@@ -245,6 +246,10 @@ func normalizeAndValidatePolicy(policy *Policy) error {
 		)
 	}
 	policy.ReviewRules = normalizeStrings(policy.ReviewRules, false)
+	policy.ResearchPreferences = normalizeStrings(
+		policy.ResearchPreferences,
+		false,
+	)
 	return nil
 }
 

@@ -42,6 +42,11 @@ func runPortfolioBrief(
 		defaultPortfolioQuestionFile,
 		"portfolio research question file; empty uses the built-in request",
 	)
+	profilePath := flags.String(
+		"profile",
+		defaultInvestmentProfilePath,
+		"investment profile JSON path; empty disables profile loading",
+	)
 	saveRun := flags.Bool("save", false, "save the analysis run to SQLite")
 	outputFormat := flags.String("output", "text", "output format: text or json")
 	if err := flags.Parse(args); err != nil {
@@ -75,6 +80,15 @@ func runPortfolioBrief(
 			err.Error(),
 		)
 	}
+	profile, err := loadOptionalInvestmentProfile(*profilePath)
+	if err != nil {
+		return commandInputError(
+			*outputFormat,
+			stdout,
+			stderr,
+			err.Error(),
+		)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -83,6 +97,17 @@ func runPortfolioBrief(
 		return writeRuntimeFailure(*outputFormat, stdout, stderr, "storage", err)
 	}
 	defer store.Close()
+	if profile != nil {
+		if _, err := syncInvestmentProfile(ctx, store, *profile); err != nil {
+			return writeRuntimeFailure(
+				*outputFormat,
+				stdout,
+				stderr,
+				"investment_profile",
+				err,
+			)
+		}
+	}
 
 	generatedAt := portfolioBriefNow()
 	result, err := buildPortfolioBriefResult(
@@ -95,6 +120,7 @@ func runPortfolioBrief(
 			UpsideBPS:   *upsideBPS,
 			Question:    resolvedQuestion,
 			GeneratedAt: generatedAt,
+			Profile:     profile,
 		},
 	)
 	if err != nil {

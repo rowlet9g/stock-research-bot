@@ -1,0 +1,65 @@
+{
+  "version": "investment-profile/v1",
+  "portfolio_policy": {
+    "objective": "감당 가능한 변동성 안에서 장기 성장",
+    "target_annual_return_percent": {
+      "minimum_percent": 7,
+      "maximum_percent": 10
+    },
+    "allocations": [
+      {
+        "category": "core",
+        "label": "코어 적립 자산",
+        "target_percent": 60,
+        "assets": [
+          "SPYM",
+          "VTI"
+        ],
+        "guidance": "광범위 지수 ETF를 정기 적립한다."
+      },
+      {
+        "category": "growth",
+        "label": "성장 자산",
+        "target_percent": 20,
+        "assets": [
+          "QQQM"
+        ],
+        "guidance": "개별주와 고변동 상품의 합산 비중을 관리한다."
+      },
+      {
+        "category": "defensive",
+        "label": "방어 자산",
+        "target_percent": 20,
+        "assets": [
+          "SGOV",
+          "CASH"
+        ],
+        "guidance": "현금성 자산과 국채로 변동성과 대기자금을 관리한다."
+      }
+    ],
+    "review_rules": [
+      "목표 배분은 분기마다 점검한다.",
+      "보호 수량은 비중 축소 검토 대상에서 제외한다.",
+      "레버리지 ETF는 성장 자산으로만 분류한다."
+    ],
+    "research_preferences": [
+      "목표보다 부족한 자산군의 후보를 먼저 검토한다."
+    ]
+  },
+  "theses": [
+    {
+      "ticker": "AAPL",
+      "allocation_category": "growth",
+      "protected_quantity": "0",
+      "summary": "서비스 매출과 현금흐름의 장기 성장을 기대한다.",
+      "invalidation_condition": "서비스 성장률과 잉여현금흐름이 두 분기 연속 악화될 때 재검토한다.",
+      "increase_condition": "실적 성장과 밸류에이션 부담 완화가 함께 확인될 때만 증액을 검토한다.",
+      "expected_holding_period": "12개월 이상, 분기 실적마다 재검토",
+      "check_metrics": [
+        "서비스 매출 성장률",
+        "영업이익률",
+        "잉여현금흐름"
+      ]
+    }
+  ]
+}

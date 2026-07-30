@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rowlet9g/stock-research-bot/internal/analysis"
+	"github.com/rowlet9g/stock-research-bot/internal/investmentprofile"
 	"github.com/rowlet9g/stock-research-bot/internal/prompt"
 	sqlitestore "github.com/rowlet9g/stock-research-bot/internal/storage/sqlite"
 )
@@ -19,6 +20,7 @@ type portfolioBriefBuildRequest struct {
 	UpsideBPS   int64
 	Question    string
 	GeneratedAt time.Time
+	Profile     *investmentprofile.Profile
 }
 
 type portfolioBriefStepError struct {
@@ -72,6 +74,7 @@ func buildPortfolioBriefResult(
 			Valuation:    valuation,
 			Scenarios:    scenarios,
 			UserQuestion: request.Question,
+			Profile:      request.Profile,
 		},
 	)
 	if err != nil {

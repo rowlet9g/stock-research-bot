@@ -82,12 +82,21 @@ func TestPortfolioBriefCommandBuildsHashLinkedPrompt(t *testing.T) {
 	); err != nil {
 		t.Fatalf("write question file: %v", err)
 	}
+	profilePath := filepath.Join(t.TempDir(), "investment-profile.json")
+	if err := os.WriteFile(
+		profilePath,
+		[]byte(testInvestmentProfileJSON()),
+		0o600,
+	); err != nil {
+		t.Fatalf("write investment profile: %v", err)
+	}
 
 	output := runCommand(
 		t,
 		"portfolio-brief",
 		"-db", databasePath,
 		"-question-file", questionPath,
+		"-profile", profilePath,
 		"-output", "json",
 	)
 	var result portfolioBriefCommandResult
@@ -102,6 +111,9 @@ func TestPortfolioBriefCommandBuildsHashLinkedPrompt(t *testing.T) {
 		!strings.Contains(result.Brief.Prompt, "가장 큰 집중 위험은?") ||
 		!strings.Contains(result.Brief.Prompt, "평가금액=400") ||
 		!strings.Contains(result.Brief.Prompt, "통화내비중=100.00%") ||
+		!strings.Contains(result.Brief.Prompt, "목표 배분: category=core") ||
+		!strings.Contains(result.Brief.Prompt, "보호수량=1") ||
+		!strings.Contains(result.Brief.Prompt, "증액조건=실적 확인 후 증액") ||
 		!strings.Contains(result.Brief.Prompt, "not_estimated") {
 		t.Fatalf("unexpected portfolio brief result: %#v", result)
 	}

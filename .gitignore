@@ -14,6 +14,7 @@ data/*.db
 data/*.db-*
 data/*.csv
 !data/*.example.csv
+data/investment_profile.json
 data/raw/
 data/cache/
 data/reports/

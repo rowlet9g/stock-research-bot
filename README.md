@@ -145,6 +145,7 @@ go run ./cmd/forgetmenot portfolio-response-email -run-id 1 -file data/reports/p
 go run ./cmd/forgetmenot portfolio-response-email -run-id 1 -file data/reports/portfolio-response.md -send
 go run ./cmd/forgetmenot portfolio-codex-email
 go run ./cmd/forgetmenot portfolio-codex-email -send
+go run ./cmd/forgetmenot investment-profile-sync
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -301,6 +302,10 @@ OpenDART API를 새로 호출하지 않으므로 키가 없어도 저장된 데�
 이 파일을 수정하면 매 실행에 같은 요청 구조가 적용되며, `-question`은 파일 내용을
 일회성 질문으로 덮어씁니다. 다른 템플릿은 `-question-file`로 지정하고,
 `-question-file ""`은 파일 로드를 끄고 코드에 내장된 기본 요청을 사용합니다.
+기본적으로 `data/investment_profile.json`을 먼저 검증하고 종목별 투자 가설을
+SQLite에 동기화합니다. 목표 배분, 보호 수량과 증액 조건은 생성 프롬프트에
+포함되며, 현재 자산군 비중은 통화별로 Go 코드가 계산합니다. 파일 형식과 관리
+방법은 [투자 프로필](docs/INVESTMENT_PROFILE.md)을 참고하세요.
 
 `portfolio-brief -save`는 명시한 경우에만 분석 결과를 `analysis_runs`에 저장합니다.
 같은 입력·규칙·출력은 중복 저장하지 않으며 `analysis-run-list`로 해시와 원본
@@ -335,6 +340,8 @@ ChatGPT로 인증된 Codex CLI 분석, 응답 파일 저장과 이메일 미리�
 메타데이터로 표시하고 Markdown을 제거한 5개 절의 행동 중심 일반 텍스트로
 작성합니다. 인증과 실행 제한, 추적 해시 및 수동 예비 경로는
 [Codex 포트폴리오 분석 이메일](docs/PORTFOLIO_RESPONSE_EMAIL.md)을 참고하세요.
+이 명령도 기본 투자 프로필을 자동으로 검증·동기화하므로 `thesis-set`을 종목마다
+반복할 필요가 없습니다.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해

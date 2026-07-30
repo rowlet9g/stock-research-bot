@@ -89,6 +89,11 @@ func runPortfolioCodexEmail(
 		defaultPortfolioQuestionFile,
 		"portfolio research question file; empty uses the built-in request",
 	)
+	profilePath := flags.String(
+		"profile",
+		defaultInvestmentProfilePath,
+		"investment profile JSON path; empty disables profile loading",
+	)
 	codexPath := flags.String(
 		"codex-path",
 		"",
@@ -171,6 +176,15 @@ func runPortfolioCodexEmail(
 			err.Error(),
 		)
 	}
+	profile, err := loadOptionalInvestmentProfile(*profilePath)
+	if err != nil {
+		return commandInputError(
+			*outputFormat,
+			stdout,
+			stderr,
+			err.Error(),
+		)
+	}
 
 	settings := config.Load(*envPath)
 	location, err := portfolioEmailLocation(settings.EmailReportTimeZone)
@@ -212,6 +226,21 @@ func runPortfolioCodexEmail(
 		)
 	}
 	defer store.Close()
+	if profile != nil {
+		if _, err := syncInvestmentProfile(
+			buildContext,
+			store,
+			*profile,
+		); err != nil {
+			return writeRuntimeFailure(
+				*outputFormat,
+				stdout,
+				stderr,
+				"investment_profile",
+				err,
+			)
+		}
+	}
 	briefResult, err := buildPortfolioBriefResult(
 		buildContext,
 		store,
@@ -222,6 +251,7 @@ func runPortfolioCodexEmail(
 			UpsideBPS:   *upsideBPS,
 			Question:    resolvedQuestion,
 			GeneratedAt: generatedAt,
+			Profile:     profile,
 		},
 	)
 	if err != nil {
@@ -471,6 +501,9 @@ func buildPortfolioCodexAnalysisPrompt(
 - 별도의 데이터 범위, 가격 출처, 강점, 일반론 절을 만들지 마.
 - 자료가 부족해도 결론 전체를 유보하지 말고 현재 수치에 근거한 기본 조치를 제시해.
 - 각 활성 종목에 유지, 추가매수 보류, 비중 축소 검토 중 하나의 기본 조치를 제시해.
+- 투자 프로필의 목표 배분과 통화별 자산군 비중을 우선 비교해.
+- 보호 수량 이하를 비중 축소 대상으로 제시하지 말고, 초과 수량만 조정 후보로 다뤄.
+- 증액 조건이 충족됐다는 근거가 없으면 해당 종목의 추가매수를 보류해.
 - high 종목은 제공된 40% 기준 재배분액을 1차 위험관리안으로 구체적으로 인용해.
 - 확정적인 주문 지시가 아니라 조건과 수치를 붙인 직접적인 권고형 문장으로 작성해.
 - 사람이 읽는 금액은 KRW는 정수, USD는 소수점 둘째 자리까지만 반올림해.

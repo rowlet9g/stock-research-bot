@@ -39,6 +39,14 @@ func TestPortfolioCodexEmailBuildsAndStoresAnalysisPreview(
 ) {
 	databasePath, generatedAt := seedPortfolioCodexCommandDatabase(t)
 	responsePath := filepath.Join(t.TempDir(), "response.md")
+	profilePath := filepath.Join(t.TempDir(), "investment-profile.json")
+	if err := os.WriteFile(
+		profilePath,
+		[]byte(testInvestmentProfileJSON()),
+		0o600,
+	); err != nil {
+		t.Fatalf("write investment profile: %v", err)
+	}
 	fake := &recordingPortfolioCodexAnalyzer{
 		Response: portfolioCodexTestResponse(),
 	}
@@ -66,6 +74,7 @@ func TestPortfolioCodexEmailBuildsAndStoresAnalysisPreview(
 		"-db", databasePath,
 		"-env", filepath.Join(t.TempDir(), "missing.env"),
 		"-question", "포트폴리오의 핵심 위험과 대응 조건을 검토해.",
+		"-profile", profilePath,
 		"-codex-reasoning", "low",
 		"-response-file", responsePath,
 		"-output", "json",
@@ -82,6 +91,9 @@ func TestPortfolioCodexEmailBuildsAndStoresAnalysisPreview(
 		!strings.Contains(fake.Prompt, "셸 명령, 파일 읽기·쓰기") ||
 		!strings.Contains(fake.Prompt, "결론 전체를 유보하지 말고") ||
 		!strings.Contains(fake.Prompt, "40% 기준 재배분액") ||
+		!strings.Contains(fake.Prompt, "보호 수량 이하") ||
+		!strings.Contains(fake.Prompt, "목표 배분: category=core") ||
+		!strings.Contains(fake.Prompt, "증액조건=실적 확인 후 증액") ||
 		!strings.Contains(fake.Prompt, "Markdown 제목") ||
 		!strings.Contains(fake.Prompt, "USD는 소수점 둘째 자리") ||
 		!strings.Contains(fake.Prompt, "포트폴리오의 핵심 위험") ||

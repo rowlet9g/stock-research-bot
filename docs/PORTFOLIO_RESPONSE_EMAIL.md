@@ -29,6 +29,11 @@ codex login status
 이메일 전송에는 기존 [일간 이메일 보고서](EMAIL_REPORTS.md)의 SMTP 설정을
 그대로 사용합니다. 미리보기에는 SMTP 설정이 필요하지 않습니다.
 
+기본 투자 정책과 종목별 가설은
+[`data/investment_profile.json`](INVESTMENT_PROFILE.md)에서 읽습니다. 명령은
+분석 전에 파일을 검증하고 SQLite에 동기화하며, 보호 수량과 증액 조건을 분석
+입력에 포함합니다.
+
 ## 실행
 
 분석 결과를 만들고 로컬 파일에 저장한 뒤 메일 본문을 미리보기합니다.
@@ -65,6 +70,7 @@ Codex 분석 제한시간은 기본 10분이며 `-codex-timeout`으로 30초에�
 
 ```text
 저장된 포지션
+  -> 투자 프로필 검증과 가설 동기화
   -> Yahoo 가격 수집
   -> 포트폴리오 평가와 시나리오
   -> portfolio_brief 분석 실행 저장
