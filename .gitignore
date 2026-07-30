@@ -9,7 +9,9 @@ __pycache__/
 .gomodcache/
 .streamlit/secrets.toml
 data/*.sqlite
+data/*.sqlite-*
 data/*.db
+data/*.db-*
 data/*.csv
 !data/*.example.csv
 data/raw/
