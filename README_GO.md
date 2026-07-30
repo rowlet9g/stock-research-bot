@@ -87,6 +87,7 @@ go run ./cmd/forgetmenot alert-list -status pending
 go run ./cmd/forgetmenot daily-email-report
 go run ./cmd/forgetmenot daily-email-report -test-alert -send
 go run ./cmd/forgetmenot daily-email-report -send
+go run ./cmd/forgetmenot portfolio-response-email -run-id 1 -file data/reports/portfolio-response.md
 go run ./cmd/forgetmenot -watchlist data/watchlist.example.csv -name 삼성전자
 ```
 
@@ -149,15 +150,21 @@ JSON 출력에서는 원본 평가·시나리오와 프롬프트 해시를 함�
 
 `alert-evaluate`는 저장된 포트폴리오 브리핑의 입력·출력 해시를 검증한 뒤 집중도와
 데이터 품질 사건을 `alerts`와 `alert_observations`에 저장합니다. 동일 분석 실행의
-재평가는 중복 관측으로 세지 않으며 `alert-list`로 조회합니다. 외부 채널 발송은
-아직 구현하지 않았고 [`docs/ALERTS.md`](docs/ALERTS.md)에 현재 규칙과 한계를
-정리했습니다.
+재평가는 중복 관측으로 세지 않으며 `alert-list`로 조회합니다.
+[`docs/ALERTS.md`](docs/ALERTS.md)에 현재 규칙과 한계를 정리했습니다.
 
 `daily-email-report`는 `pending` 후보를 사실 중심의 한국어 보고서로 만듭니다.
 미리보기는 계정 정보 없이 실행되며 `-send`를 명시한 경우에만 TLS SMTP로
 전송합니다. 전송 성공 뒤에만 `sent` 상태를 저장하며 설정과 한계는
 [`docs/EMAIL_REPORTS.md`](docs/EMAIL_REPORTS.md)에 정리했습니다.
 `-test-alert`는 `[TEST]` 합성 항목만 보내고 실제 알림 상태를 변경하지 않습니다.
+
+`portfolio-response-email`은 ChatGPT Plus 답변 파일을 저장된
+`portfolio_brief` 실행과 연결해 미리보기하거나 SMTP로 전송합니다. 원본 입력,
+분석 payload, 프롬프트와 답변의 SHA-256을 기록하며 OpenAI API는 호출하지
+않습니다. 반자동 실행 절차는
+[`docs/PORTFOLIO_RESPONSE_EMAIL.md`](docs/PORTFOLIO_RESPONSE_EMAIL.md)에
+정리했습니다.
 
 KRX 동기화에는 `.env` 또는 환경변수의 `KRX_API_KEY`와 KRX Data
 Marketplace의 유가증권, 코스닥, 코넥스 종목기본정보 및 ETF, ETN 일별매매정보

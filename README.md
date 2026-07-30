@@ -13,6 +13,7 @@ DART 공시/재무 정보와 Yahoo Finance 시세 데이터를 결합해 투자 
 - [분석 실행 이력](docs/ANALYSIS_RUNS.md): 입력·규칙·출력 해시 기반 SQLite 이력
 - [알림 후보](docs/ALERTS.md): 포트폴리오 사건 판정, 중복 억제와 이메일 상태 전이
 - [일간 이메일 보고서](docs/EMAIL_REPORTS.md): SMTP 설정, 미리보기, 전송과 운영 한계
+- [포트폴리오 상세 분석 이메일](docs/PORTFOLIO_RESPONSE_EMAIL.md): ChatGPT Plus 답변 파일의 반자동 검증과 전송
 - [저장소 작업 지침](AGENTS.md): 구현, 보안, 테스트, 검증 및 Git 규칙
 - [Go 포팅 현황](README_GO.md): 현재 Go CLI 범위와 실행 방법
 
@@ -67,6 +68,7 @@ Go 포트는 `cmd/forgetmenot` CLI에서 아래 흐름을 먼저 구현합니다
 - 입력·규칙·출력 해시를 보존하는 분석 실행 이력
 - 집중도와 데이터 품질 알림 후보의 결정론적 생성 및 중복 억제 저장
 - TLS SMTP 기반 일간 알림 보고서 미리보기와 명시적 이메일 전송
+- ChatGPT Plus 답변 파일과 분석 실행 해시를 연결한 상세 분석 이메일 전송
 
 ## 개발 환경 준비
 
@@ -135,6 +137,8 @@ go run ./cmd/forgetmenot alert-list -status pending
 go run ./cmd/forgetmenot daily-email-report
 go run ./cmd/forgetmenot daily-email-report -test-alert -send
 go run ./cmd/forgetmenot daily-email-report -send
+go run ./cmd/forgetmenot portfolio-response-email -run-id 1 -file data/reports/portfolio-response.md
+go run ./cmd/forgetmenot portfolio-response-email -run-id 1 -file data/reports/portfolio-response.md -send
 go run ./cmd/forgetmenot position-set -ticker AAPL -quantity 2 -average-cost 210.50 -currency USD -as-of 2026-07-23
 go run ./cmd/forgetmenot thesis-set -ticker AAPL -summary "서비스 매출 성장" -invalidation "서비스 성장률 둔화" -horizon "12개월" -metrics "서비스 매출,마진"
 go run ./cmd/forgetmenot trades-import -file data/trades.normalized.example.csv -source mirae-normalized
@@ -309,6 +313,14 @@ payload를 조회할 수 있습니다. 자세한 정책은
 [일간 이메일 보고서](docs/EMAIL_REPORTS.md)를 참고하세요.
 전송 경로만 확인할 때는 `-test-alert -send`를 사용하며, 이 메일은 `[TEST]`로
 표시되고 실제 SQLite 알림 상태를 변경하지 않습니다.
+
+`portfolio-response-email`은 ChatGPT Plus의 상세 분석 답변을 Markdown 또는 평문
+파일로 가져와 저장된 `portfolio_brief` 분석 실행과 연결합니다. 기본 실행은
+메일 미리보기이고 `-send`를 명시한 경우에만 기존 SMTP 설정으로 전송합니다.
+OpenAI API를 호출하지 않으며 원본 입력, 프롬프트와 답변의 SHA-256을 메일에
+기록합니다. 실제 모델과 답변 정확성은 검증할 수 없으므로 사용자가 확인해야 합니다.
+자세한 절차는
+[포트폴리오 상세 분석 이메일](docs/PORTFOLIO_RESPONSE_EMAIL.md)을 참고하세요.
 
 `krx-instrument-sync`는 KRX Open API의 아래 다섯 서비스를 데이터셋별로
 동기화합니다. KRX Data Marketplace에서 인증키를 발급받고 각 서비스를 신청해

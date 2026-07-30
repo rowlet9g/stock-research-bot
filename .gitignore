@@ -14,6 +14,7 @@ data/*.csv
 !data/*.example.csv
 data/raw/
 data/cache/
+data/reports/
 dist/
 build/
 *.egg-info/

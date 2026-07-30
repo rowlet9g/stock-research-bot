@@ -273,6 +273,8 @@ func decodePortfolioBriefAnalysisRun(
 			err,
 		)
 	}
+	promptHash := sha256.Sum256([]byte(result.Brief.Prompt))
+	encodedPromptHash := hex.EncodeToString(promptHash[:])
 	switch {
 	case valuationHash != run.InputSHA256:
 		return portfolioBriefCommandResult{}, fmt.Errorf(
@@ -287,6 +289,11 @@ func decodePortfolioBriefAnalysisRun(
 	case result.Brief.Version != run.RuleVersion:
 		return portfolioBriefCommandResult{}, fmt.Errorf(
 			"analysis run %d brief version does not match stored rule version",
+			run.ID,
+		)
+	case encodedPromptHash != result.Brief.PromptSHA256:
+		return portfolioBriefCommandResult{}, fmt.Errorf(
+			"analysis run %d prompt hash does not match stored prompt",
 			run.ID,
 		)
 	}
