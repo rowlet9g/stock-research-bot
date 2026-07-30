@@ -31,22 +31,29 @@ ForgetMeNot은 저장된 `portfolio_brief` 실행의 payload와 해시를 검증
 
 ## PowerShell 실행
 
-먼저 포트폴리오 분석 실행을 저장하고 프롬프트를 클립보드에 넣습니다.
-
-```powershell
-$brief = go run ./cmd/forgetmenot portfolio-brief -save -output json | ConvertFrom-Json
-$runId = $brief.analysis_run.id
-$brief.brief.prompt | Set-Clipboard
-$runId
-```
-
-클립보드의 프롬프트를 ChatGPT Plus에 입력합니다. 답변 전체를 다시 클립보드에
-넣은 뒤 추적되지 않는 `data/reports` 아래에 저장합니다.
+먼저 보고서 디렉터리를 만들고 포트폴리오 분석 실행과 프롬프트를 각각 저장합니다.
+프롬프트는 클립보드를 거치지 않습니다.
 
 ```powershell
 New-Item -ItemType Directory -Force data\reports
-Get-Clipboard -Raw | Set-Content -LiteralPath data\reports\portfolio-response.md -Encoding utf8
+
+$brief = go run ./cmd/forgetmenot portfolio-brief -save -output json | ConvertFrom-Json
+$runId = $brief.analysis_run.id
+$brief.brief.prompt |
+  Set-Content -LiteralPath data\reports\portfolio-prompt.md -Encoding utf8
+$runId
 ```
+
+`data/reports/portfolio-prompt.md`를 ChatGPT Plus에 첨부하거나 파일 내용을
+입력합니다. 답변을 받기 전에 별도의 응답 파일을 편집기로 열어 둡니다.
+
+```powershell
+notepad data\reports\portfolio-response.md
+```
+
+그다음 ChatGPT 답변 전체를 복사하고 이미 열어 둔 편집기에 붙여넣은 뒤 저장합니다.
+답변을 복사한 다음 `Get-Clipboard | Set-Content` 명령을 다시 복사해 실행하면
+클립보드가 명령문으로 덮일 수 있으므로 이 방식을 사용하지 않습니다.
 
 먼저 메일 본문을 미리보기합니다. 미리보기에는 SMTP 설정이 필요하지 않습니다.
 
@@ -71,7 +78,9 @@ go run ./cmd/forgetmenot portfolio-response-email `
 
 - `-run-id`는 저장된 `portfolio_brief` 분석 실행이어야 합니다.
 - 답변 파일은 UTF-8 Markdown 또는 평문을 사용합니다.
-- 빈 파일은 거부하며 최대 크기는 256 KiB입니다.
+- 빈 파일과 200자 미만의 응답은 거부하며 최대 크기는 256 KiB입니다.
+- `Get-Clipboard`와 `Set-Content` 캡처 명령이 답변 대신 들어간 파일은 거부합니다.
+- 원본 프롬프트와 내용이 같은 파일은 답변으로 전송하지 않습니다.
 - 줄바꿈은 해시 계산 전에 LF로 정규화합니다.
 - 메일은 HTML이 아닌 UTF-8 평문으로 전송합니다.
 - `data/reports/`는 Git에서 제외합니다.

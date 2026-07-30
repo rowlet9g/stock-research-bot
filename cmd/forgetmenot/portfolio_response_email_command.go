@@ -157,6 +157,17 @@ func runPortfolioResponseEmail(
 			err,
 		)
 	}
+	if samePortfolioResponseAndPrompt(
+		response,
+		briefResult.Brief.Prompt,
+	) {
+		return commandInputError(
+			*outputFormat,
+			stdout,
+			stderr,
+			"portfolio response file contains the original prompt instead of the ChatGPT response",
+		)
+	}
 	report, err := reporting.BuildPortfolioResponseReport(
 		reporting.PortfolioResponseReportInput{
 			AnalysisRunID:          run.ID,
@@ -274,16 +285,27 @@ func readPortfolioResponseFile(path string) (string, error) {
 			maxPortfolioResponseBytes,
 		)
 	}
-	response := strings.TrimSpace(
-		strings.TrimPrefix(string(content), "\uFEFF"),
-	)
-	if response == "" {
+	response, err := reporting.ValidatePortfolioResponse(string(content))
+	if err != nil {
 		return "", fmt.Errorf(
-			"portfolio response file %q is empty",
+			"portfolio response file %q is invalid: %w",
 			path,
+			err,
 		)
 	}
 	return response, nil
+}
+
+func samePortfolioResponseAndPrompt(
+	response string,
+	prompt string,
+) bool {
+	normalize := func(value string) string {
+		value = strings.ReplaceAll(value, "\r\n", "\n")
+		value = strings.ReplaceAll(value, "\r", "\n")
+		return strings.TrimSpace(value)
+	}
+	return normalize(response) == normalize(prompt)
 }
 
 func writePortfolioResponseEmailResult(

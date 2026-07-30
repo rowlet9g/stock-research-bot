@@ -27,7 +27,13 @@ func TestPortfolioResponseEmailPreviewLinksStoredAnalysisRun(t *testing.T) {
 	responsePath := filepath.Join(t.TempDir(), "response.md")
 	if err := os.WriteFile(
 		responsePath,
-		[]byte("# 핵심 요약\r\n\r\n집중 위험을 먼저 검토한다.\r\n"),
+		[]byte(
+			"# 핵심 요약\r\n\r\n집중 위험을 먼저 검토한다.\r\n\r\n"+
+				strings.Repeat(
+					"통화별 집중도와 투자 가설을 사실과 해석으로 나누어 검토한다. ",
+					8,
+				),
+		),
 		0o600,
 	); err != nil {
 		t.Fatalf("write response file: %v", err)
@@ -71,7 +77,10 @@ func TestPortfolioResponseEmailSendsThroughConfiguredSMTP(t *testing.T) {
 	responsePath := filepath.Join(t.TempDir(), "response.txt")
 	if err := os.WriteFile(
 		responsePath,
-		[]byte("포트폴리오 상세 분석 응답"),
+		[]byte(strings.Repeat(
+			"포트폴리오 상세 분석에서 집중도와 보유 가설을 함께 검토한다. ",
+			10,
+		)),
 		0o600,
 	); err != nil {
 		t.Fatalf("write response file: %v", err)
@@ -127,13 +136,28 @@ func TestReadPortfolioResponseFileRejectsInvalidContent(t *testing.T) {
 		t.Fatalf("write empty response: %v", err)
 	}
 	if _, err := readPortfolioResponseFile(emptyPath); err == nil ||
-		!strings.Contains(err.Error(), "is empty") {
+		!strings.Contains(err.Error(), "content is required") {
 		t.Fatalf("empty response was accepted: %v", err)
 	}
 	if _, err := readPortfolioResponseFile(
 		filepath.Join(t.TempDir(), "missing.md"),
 	); err == nil || !strings.Contains(err.Error(), "read portfolio response") {
 		t.Fatalf("missing response was accepted: %v", err)
+	}
+	commandPath := filepath.Join(t.TempDir(), "command.md")
+	if err := os.WriteFile(
+		commandPath,
+		[]byte(
+			"Get-Clipboard -Raw |\n"+
+				"Set-Content -LiteralPath data/reports/response.md",
+		),
+		0o600,
+	); err != nil {
+		t.Fatalf("write command response: %v", err)
+	}
+	if _, err := readPortfolioResponseFile(commandPath); err == nil ||
+		!strings.Contains(err.Error(), "clipboard capture") {
+		t.Fatalf("clipboard command response was accepted: %v", err)
 	}
 	largePath := filepath.Join(t.TempDir(), "large.md")
 	if err := os.WriteFile(
@@ -171,6 +195,21 @@ func TestDecodePortfolioBriefAnalysisRunRejectsPromptHashMismatch(
 	if _, err := decodePortfolioBriefAnalysisRun(run); err == nil ||
 		!strings.Contains(err.Error(), "prompt hash") {
 		t.Fatalf("prompt hash mismatch was accepted: %v", err)
+	}
+}
+
+func TestSamePortfolioResponseAndPromptNormalizesLineEndings(t *testing.T) {
+	if !samePortfolioResponseAndPrompt(
+		"first\r\nsecond\r\n",
+		"first\nsecond",
+	) {
+		t.Fatal("equivalent prompt and response were not detected")
+	}
+	if samePortfolioResponseAndPrompt(
+		"first\nanalysis",
+		"first\nprompt",
+	) {
+		t.Fatal("different response was treated as the prompt")
 	}
 }
 

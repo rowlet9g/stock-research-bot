@@ -15,6 +15,11 @@ func TestBuildPortfolioResponseReportPreservesProvenance(t *testing.T) {
 	inputHash := strings.Repeat("a", 64)
 	outputHash := strings.Repeat("d", 64)
 	promptHash := strings.Repeat("b", 64)
+	responseBody := "# 핵심 요약\r\n\r\n유지 가설을 확인한다.\r\n\r\n" +
+		strings.Repeat(
+			"포트폴리오 집중도와 투자 가설을 사실, 해석, 반론으로 구분해 검토한다. ",
+			8,
+		)
 	report, err := BuildPortfolioResponseReport(
 		PortfolioResponseReportInput{
 			AnalysisRunID:          7,
@@ -23,7 +28,7 @@ func TestBuildPortfolioResponseReportPreservesProvenance(t *testing.T) {
 			InputSHA256:            inputHash,
 			AnalysisOutputSHA256:   outputHash,
 			PromptSHA256:           promptHash,
-			Response:               "\uFEFF# 핵심 요약\r\n\r\n유지 가설을 확인한다.\r\n",
+			Response:               "\uFEFF" + responseBody,
 		},
 		generatedAt,
 		location,
@@ -31,7 +36,11 @@ func TestBuildPortfolioResponseReportPreservesProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build portfolio response report: %v", err)
 	}
-	expectedResponse := "# 핵심 요약\n\n유지 가설을 확인한다."
+	expectedResponse := "# 핵심 요약\n\n유지 가설을 확인한다.\n\n" +
+		strings.TrimSpace(strings.Repeat(
+			"포트폴리오 집중도와 투자 가설을 사실, 해석, 반론으로 구분해 검토한다. ",
+			8,
+		))
 	expectedHash := sha256.Sum256([]byte(expectedResponse))
 	if report.Version != PortfolioResponseReportVersion ||
 		report.ReportDate != "2026-07-30" ||
@@ -75,7 +84,10 @@ func TestBuildPortfolioResponseReportRejectsInvalidInputs(t *testing.T) {
 		InputSHA256:            strings.Repeat("a", 64),
 		AnalysisOutputSHA256:   strings.Repeat("d", 64),
 		PromptSHA256:           strings.Repeat("b", 64),
-		Response:               "analysis",
+		Response: strings.Repeat(
+			"포트폴리오 위험과 투자 가설을 근거 중심으로 검토한다. ",
+			10,
+		),
 	}
 	tests := []struct {
 		name   string
@@ -130,5 +142,21 @@ func TestBuildPortfolioResponseReportRejectsInvalidInputs(t *testing.T) {
 				t.Fatal("invalid portfolio response input was accepted")
 			}
 		})
+	}
+}
+
+func TestValidatePortfolioResponseRejectsCaptureCommandAndShortText(
+	t *testing.T,
+) {
+	if _, err := ValidatePortfolioResponse(
+		"Get-Clipboard -Raw |\n" +
+			"Set-Content -LiteralPath data/reports/response.md",
+	); err == nil || !strings.Contains(err.Error(), "clipboard capture") {
+		t.Fatalf("clipboard capture command was accepted: %v", err)
+	}
+	if _, err := ValidatePortfolioResponse(
+		"짧은 분석 응답",
+	); err == nil || !strings.Contains(err.Error(), "too short") {
+		t.Fatalf("short response was accepted: %v", err)
 	}
 }

@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const PortfolioResponseReportVersion = "portfolio-response-report/v1"
+
+const minPortfolioResponseRunes = 200
 
 type PortfolioResponseReportInput struct {
 	AnalysisRunID          int64
@@ -47,7 +50,7 @@ func BuildPortfolioResponseReport(
 		strings.TrimSpace(input.AnalysisOutputSHA256),
 	)
 	input.PromptSHA256 = strings.ToLower(strings.TrimSpace(input.PromptSHA256))
-	response := normalizePortfolioResponse(input.Response)
+	response, responseErr := ValidatePortfolioResponse(input.Response)
 	switch {
 	case generatedAt.IsZero():
 		return PortfolioResponseReport{}, fmt.Errorf(
@@ -83,10 +86,8 @@ func BuildPortfolioResponseReport(
 		return PortfolioResponseReport{}, fmt.Errorf(
 			"portfolio response prompt SHA-256 is invalid",
 		)
-	case response == "":
-		return PortfolioResponseReport{}, fmt.Errorf(
-			"portfolio response content is required",
-		)
+	case responseErr != nil:
+		return PortfolioResponseReport{}, responseErr
 	}
 
 	responseHash := sha256.Sum256([]byte(response))
@@ -177,11 +178,35 @@ func (r PortfolioResponseReport) TextBody(
 	return builder.String(), nil
 }
 
-func normalizePortfolioResponse(value string) string {
+func ValidatePortfolioResponse(value string) (string, error) {
 	value = strings.TrimPrefix(value, "\uFEFF")
 	value = strings.ReplaceAll(value, "\r\n", "\n")
 	value = strings.ReplaceAll(value, "\r", "\n")
-	return strings.TrimSpace(value)
+	value = strings.TrimSpace(value)
+	switch {
+	case value == "":
+		return "", fmt.Errorf(
+			"portfolio response content is required",
+		)
+	case looksLikeClipboardCaptureCommand(value):
+		return "", fmt.Errorf(
+			"portfolio response appears to contain the clipboard capture command instead of a ChatGPT response",
+		)
+	case utf8.RuneCountInString(value) < minPortfolioResponseRunes:
+		return "", fmt.Errorf(
+			"portfolio response is too short: got %d characters, need at least %d",
+			utf8.RuneCountInString(value),
+			minPortfolioResponseRunes,
+		)
+	default:
+		return value, nil
+	}
+}
+
+func looksLikeClipboardCaptureCommand(value string) bool {
+	lower := strings.ToLower(value)
+	return strings.Contains(lower, "get-clipboard") &&
+		strings.Contains(lower, "set-content")
 }
 
 func validReportSHA256(value string) bool {
