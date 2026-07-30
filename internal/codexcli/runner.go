@@ -3,6 +3,7 @@ package codexcli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,12 +18,16 @@ type Config struct {
 	Executable      string
 	WorkDir         string
 	ReasoningEffort string
+	LiveWebSearch   bool
+	OutputSchema    []byte
 }
 
 type Runner struct {
 	executable      string
 	workDir         string
 	reasoningEffort string
+	liveWebSearch   bool
+	outputSchema    string
 	environment     []string
 }
 
@@ -71,10 +76,26 @@ func New(config Config) (*Runner, error) {
 			reasoningEffort,
 		)
 	}
+	outputSchema := ""
+	if len(config.OutputSchema) > 0 {
+		if !json.Valid(config.OutputSchema) {
+			return nil, fmt.Errorf("Codex CLI output schema is not valid JSON")
+		}
+		outputSchema = filepath.Join(workDir, "codex-output-schema.json")
+		if err := os.WriteFile(outputSchema, config.OutputSchema, 0o600); err != nil {
+			return nil, fmt.Errorf(
+				"write Codex CLI output schema %q: %w",
+				outputSchema,
+				err,
+			)
+		}
+	}
 	return &Runner{
 		executable:      executable,
 		workDir:         workDir,
 		reasoningEffort: reasoningEffort,
+		liveWebSearch:   config.LiveWebSearch,
+		outputSchema:    outputSchema,
 		environment:     environmentWithoutAPIKeys(os.Environ()),
 	}, nil
 }
@@ -143,7 +164,11 @@ func (r *Runner) Analyze(
 }
 
 func (r *Runner) executionArguments() []string {
-	return []string{
+	arguments := make([]string, 0, 20)
+	if r.liveWebSearch {
+		arguments = append(arguments, "--search")
+	}
+	arguments = append(arguments,
 		"exec",
 		"--ephemeral",
 		"--ignore-user-config",
@@ -159,8 +184,15 @@ func (r *Runner) executionArguments() []string {
 			"model_reasoning_effort=%q",
 			r.reasoningEffort,
 		),
-		"-",
+	)
+	if r.outputSchema != "" {
+		arguments = append(
+			arguments,
+			"--output-schema",
+			r.outputSchema,
+		)
 	}
+	return append(arguments, "-")
 }
 
 func discoverExecutable(configured string) (string, error) {

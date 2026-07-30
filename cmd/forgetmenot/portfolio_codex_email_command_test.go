@@ -88,26 +88,33 @@ func TestPortfolioCodexEmailBuildsAndStoresAnalysisPreview(
 		t.Fatalf("read generated Codex response: %v", err)
 	}
 	if fake.Calls != 1 ||
-		!strings.Contains(fake.Prompt, "셸 명령, 파일 읽기·쓰기") ||
-		!strings.Contains(fake.Prompt, "결론 전체를 유보하지 말고") ||
+		!strings.Contains(fake.Prompt, "셸 명령과 로컬 파일 읽기·쓰기") ||
+		!strings.Contains(fake.Prompt, "실시간 웹 검색을 반드시") ||
+		!strings.Contains(fake.Prompt, "partial_sell") ||
+		!strings.Contains(fake.Prompt, "평단 하락 자체가 아니라") ||
+		!strings.Contains(fake.Prompt, "실제 편입 후보 2~4개") ||
 		!strings.Contains(fake.Prompt, "40% 기준 재배분액") ||
-		!strings.Contains(fake.Prompt, "보호 수량 이하") ||
+		!strings.Contains(fake.Prompt, "보호 수량이 있는 종목") ||
 		!strings.Contains(fake.Prompt, "목표 배분: category=core") ||
 		!strings.Contains(fake.Prompt, "증액조건=실적 확인 후 증액") ||
-		!strings.Contains(fake.Prompt, "Markdown 제목") ||
-		!strings.Contains(fake.Prompt, "USD는 소수점 둘째 자리") ||
+		!strings.Contains(fake.Prompt, "research_conclusions") ||
 		!strings.Contains(fake.Prompt, "포트폴리오의 핵심 위험") ||
 		!strings.Contains(fake.Prompt, "평가금액=400") ||
 		analyzerConfig.ReasoningEffort != "low" ||
+		!analyzerConfig.LiveWebSearch ||
+		len(analyzerConfig.OutputSchema) == 0 ||
 		analyzerConfig.WorkDir == "" ||
 		result.AnalysisRunID <= 0 ||
 		result.Report.ResponseOrigin !=
-			reporting.PortfolioResponseOriginCodexChatGPT ||
-		result.Report.Response != fake.Response ||
+			reporting.PortfolioResponseOriginCodexWebResearch ||
+		len(result.Advice.Holdings) != 1 ||
+		result.Advice.Holdings[0].Action != "partial_sell" ||
+		!strings.Contains(result.Report.Response, "AAPL: 부분 매도") ||
 		result.Delivery.Requested ||
 		result.Delivery.Sent ||
-		strings.TrimSpace(string(storedResponse)) != fake.Response ||
-		!strings.Contains(result.Body, "즉시 행동안") ||
+		strings.TrimSpace(string(storedResponse)) != result.Report.Response ||
+		!strings.Contains(result.Body, "포트폴리오 조정안") ||
+		!strings.Contains(result.Body, "SPYM") ||
 		strings.Contains(result.Body, "SHA-256") {
 		t.Fatalf(
 			"unexpected portfolio Codex preview: result=%#v fake=%#v config=%#v",
@@ -321,25 +328,112 @@ func portfolioCodexTestPrice(
 
 func portfolioCodexTestResponse() string {
 	return strings.TrimSpace(
-		`1. 핵심 결론
-
-현재 포트폴리오는 단일 종목 비중이 높아 가격 변동의 영향을 크게 받는다.
-추가 매수는 보류하고 40% 집중도 기준까지 비중을 낮추는 안을 먼저 검토하는 편이 합리적이다.
-
-2. 즉시 행동안
-
-고집중 종목은 제공된 재배분 참고액을 기준으로 두세 차례에 나누어 조정하는 안을 우선한다.
-
-3. 활성 종목 판단
-
-Apple: 가격 타이밍 결과는 유리하지만 집중도가 높으므로 추가 매수는 보류하고 비중 축소를 검토한다.
-
-4. 추가 매수와 신규 편입
-
-기존 고집중 종목의 추가 매수는 보류하는 편이 합리적이다.
-
-5. 다음 확인사항
-
-실적, 공시, 산업 지표와 투자 가설을 갱신하면 조정 강도를 다시 판단할 수 있다.`,
+		`{
+  "version": "portfolio-advice/v1",
+  "as_of": "2026-07-30T01:00:00Z",
+  "executive_summary": [
+    "AAPL 단일 종목 집중을 줄이는 것이 가장 먼저 필요한 조정이다.",
+    "보호수량 1주는 유지하고 초과 1주만 부분 매도하는 편이 적절하다.",
+    "신규 자금은 코어와 방어 자산을 함께 보완하는 편이 낫다."
+  ],
+  "portfolio_actions": [
+    "AAPL 1주를 부분 매도해 단일 종목 집중도를 낮춘다.",
+    "SPYM은 월 신규자금의 코어 몫으로 적립식 매수한다.",
+    "SGOV는 방어 몫으로 나누어 매수한다."
+  ],
+  "holdings": [
+    {
+      "ticker": "AAPL",
+      "action": "partial_sell",
+      "conviction": "medium",
+      "quantity_change": "-1",
+      "target_adjustment": "보호수량 1주를 남기고 초과 1주를 부분 매도한다.",
+      "thesis_status": "mixed",
+      "increase_condition_status": "partially_met",
+      "rationale": "서비스 매출 성장은 이어졌지만 현재 포트폴리오가 AAPL 한 종목에 집중되어 있어 추가 매수보다 부분 매도가 낫다.",
+      "averaging_down_assessment": "현재 가격은 평단보다 높고 집중도도 높아 평단을 낮추기 위한 추가 매수는 타당하지 않다.",
+      "counterargument": "서비스 성장과 현금흐름이 예상보다 강하면 한 주를 유지하는 장기 가치는 남아 있다.",
+      "action_trigger": "현재 구성에서 초과 1주를 두 차례 이내로 매도한다.",
+      "evidence": [
+        {
+          "claim": "공식 분기 자료에서 서비스 매출 추이를 확인했다.",
+          "source_kind": "primary",
+          "source_name": "Apple Investor Relations",
+          "source_date": "2026-07-30",
+          "url": "https://www.apple.com/newsroom/"
+        },
+        {
+          "claim": "시장 가격 추세와 최근 실적 기대를 교차 확인했다.",
+          "source_kind": "secondary",
+          "source_name": "Reuters",
+          "source_date": "2026-07-30",
+          "url": "https://www.reuters.com/technology/"
+        }
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "ticker": "SPYM",
+      "name": "SPDR Portfolio S&P 500 ETF",
+      "allocation_category": "core",
+      "action": "accumulate",
+      "proposed_role": "미국 대형주 분산 코어",
+      "entry_plan": "신규자금의 코어 배분을 월 단위로 적립한다.",
+      "rationale": "단일 종목 의존도를 낮추면서 광범위한 대형주 노출을 확보한다.",
+      "risks": "미국 대형주 시장 전체 하락과 환율 변동에 노출된다.",
+      "evidence": [
+        {
+          "claim": "운용사 공식 페이지에서 지수와 비용 구조를 확인했다.",
+          "source_kind": "primary",
+          "source_name": "State Street Global Advisors",
+          "source_date": "2026-07-30",
+          "url": "https://www.ssga.com/us/en/intermediary/etfs"
+        },
+        {
+          "claim": "ETF 시장 정보에서 거래 특성을 교차 확인했다.",
+          "source_kind": "secondary",
+          "source_name": "Morningstar",
+          "source_date": "2026-07-30",
+          "url": "https://www.morningstar.com/etfs"
+        }
+      ]
+    },
+    {
+      "ticker": "SGOV",
+      "name": "iShares 0-3 Month Treasury Bond ETF",
+      "allocation_category": "defensive",
+      "action": "accumulate",
+      "proposed_role": "단기 미국 국채 방어 자산",
+      "entry_plan": "방어 목표 비중을 향해 신규자금을 세 차례로 나누어 적립한다.",
+      "rationale": "주식 집중도를 낮추고 짧은 듀레이션의 국채 노출을 더한다.",
+      "risks": "정책금리 하락 시 분배수익률이 낮아질 수 있다.",
+      "evidence": [
+        {
+          "claim": "운용사 공식 페이지에서 만기 범위와 비용을 확인했다.",
+          "source_kind": "primary",
+          "source_name": "iShares",
+          "source_date": "2026-07-30",
+          "url": "https://www.ishares.com/us/products/314116/"
+        },
+        {
+          "claim": "미국 단기 국채 금리 환경을 교차 확인했다.",
+          "source_kind": "secondary",
+          "source_name": "Federal Reserve Bank of St. Louis",
+          "source_date": "2026-07-30",
+          "url": "https://fred.stlouisfed.org/"
+        }
+      ]
+    }
+  ],
+  "research_conclusions": [
+    "AAPL의 사업 가설은 일부 유지되지만 단일 종목 집중 위험이 더 큰 제약이다.",
+    "SPYM은 개별 종목 위험을 낮추는 코어 역할에 적합하다.",
+    "SGOV는 짧은 듀레이션으로 방어 자산의 빈자리를 보완한다."
+  ],
+  "limitations": [
+    "세금과 실제 주문 수수료는 계좌별 정보가 없어 반영하지 못했다."
+  ]
+}`,
 	)
 }

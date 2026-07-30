@@ -13,10 +13,13 @@ func TestNewBuildsReadOnlyEphemeralArguments(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("test"), 0o700); err != nil {
 		t.Fatalf("write fake Codex executable: %v", err)
 	}
+	workDir := t.TempDir()
 	runner, err := New(Config{
 		Executable:      executable,
-		WorkDir:         t.TempDir(),
+		WorkDir:         workDir,
 		ReasoningEffort: "low",
+		LiveWebSearch:   true,
+		OutputSchema:    []byte(`{"type":"object"}`),
 	})
 	if err != nil {
 		t.Fatalf("create Codex runner: %v", err)
@@ -26,9 +29,11 @@ func TestNewBuildsReadOnlyEphemeralArguments(t *testing.T) {
 		"exec",
 		"--ephemeral",
 		"--ignore-user-config",
+		"--search",
 		"read-only",
 		"--skip-git-repo-check",
 		"model_reasoning_effort=\"low\"",
+		"--output-schema",
 		"-",
 	} {
 		if !contains(arguments, expected) {
@@ -38,6 +43,17 @@ func TestNewBuildsReadOnlyEphemeralArguments(t *testing.T) {
 				arguments,
 			)
 		}
+	}
+	schemaPath := filepath.Join(workDir, "codex-output-schema.json")
+	if !contains(arguments, schemaPath) {
+		t.Fatalf(
+			"Codex arguments missing schema path %q: %#v",
+			schemaPath,
+			arguments,
+		)
+	}
+	if _, err := os.Stat(schemaPath); err != nil {
+		t.Fatalf("inspect written output schema: %v", err)
 	}
 }
 
@@ -72,6 +88,13 @@ func TestNewRejectsInvalidConfiguration(t *testing.T) {
 		WorkDir:    t.TempDir(),
 	}); err == nil || !strings.Contains(err.Error(), "executable") {
 		t.Fatalf("missing executable was accepted: %v", err)
+	}
+	if _, err := New(Config{
+		Executable:   executable,
+		WorkDir:      t.TempDir(),
+		OutputSchema: []byte(`{"type":`),
+	}); err == nil || !strings.Contains(err.Error(), "output schema") {
+		t.Fatalf("invalid output schema was accepted: %v", err)
 	}
 }
 

@@ -16,6 +16,7 @@ const minPortfolioResponseRunes = 200
 const (
 	PortfolioResponseOriginManualChatGPTPlus = "manual_chatgpt_plus_import"
 	PortfolioResponseOriginCodexChatGPT      = "codex_cli_chatgpt"
+	PortfolioResponseOriginCodexWebResearch  = "codex_cli_chatgpt_web_research"
 )
 
 type PortfolioResponseReportInput struct {
@@ -213,7 +214,8 @@ func validReportSHA256(value string) bool {
 func validPortfolioResponseOrigin(value string) bool {
 	switch value {
 	case PortfolioResponseOriginManualChatGPTPlus,
-		PortfolioResponseOriginCodexChatGPT:
+		PortfolioResponseOriginCodexChatGPT,
+		PortfolioResponseOriginCodexWebResearch:
 		return true
 	default:
 		return false
