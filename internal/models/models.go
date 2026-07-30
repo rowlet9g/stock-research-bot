@@ -223,13 +223,16 @@ type Position struct {
 }
 
 type Thesis struct {
-	InstrumentID          int64     `json:"instrument_id"`
-	Summary               string    `json:"summary"`
-	InvalidationCondition string    `json:"invalidation_condition"`
-	ExpectedHoldingPeriod string    `json:"expected_holding_period"`
-	CheckMetrics          []string  `json:"check_metrics"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	InstrumentID           int64     `json:"instrument_id"`
+	AllocationCategory     string    `json:"allocation_category"`
+	ProtectedQuantityUnits int64     `json:"protected_quantity_units"`
+	Summary                string    `json:"summary"`
+	InvalidationCondition  string    `json:"invalidation_condition"`
+	IncreaseCondition      string    `json:"increase_condition"`
+	ExpectedHoldingPeriod  string    `json:"expected_holding_period"`
+	CheckMetrics           []string  `json:"check_metrics"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
 }
 
 type PortfolioRecord struct {

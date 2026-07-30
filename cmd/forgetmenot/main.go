@@ -102,6 +102,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return runPortfolioResponseEmail(args[1:], stdout, stderr)
 		case "portfolio-codex-email":
 			return runPortfolioCodexEmail(args[1:], stdout, stderr)
+		case "investment-profile-sync":
+			return runInvestmentProfileSync(args[1:], stdout, stderr)
 		case "krx-instrument-sync":
 			return runKRXInstrumentSync(args[1:], stdout, stderr)
 		case "position-set":

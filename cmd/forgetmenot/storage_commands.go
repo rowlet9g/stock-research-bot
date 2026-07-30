@@ -799,6 +799,7 @@ func writeCommandHelp(output io.Writer) {
 	fmt.Fprintln(output, "  daily-email-report Preview or send the pending alert digest")
 	fmt.Fprintln(output, "  portfolio-response-email Preview or send an imported ChatGPT response")
 	fmt.Fprintln(output, "  portfolio-codex-email Generate, analyze, and optionally email a portfolio report")
+	fmt.Fprintln(output, "  investment-profile-sync Validate and sync the investment profile")
 	fmt.Fprintln(output, "  krx-instrument-sync Sync KRX instrument identifiers and classifications")
 	fmt.Fprintln(output, "  position-set     Store the current position snapshot")
 	fmt.Fprintln(output, "  thesis-set       Store the current investment thesis")

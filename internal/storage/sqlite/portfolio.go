@@ -11,6 +11,29 @@ import (
 	"github.com/rowlet9g/stock-research-bot/internal/models"
 )
 
+type ThesisInput struct {
+	AllocationCategory     string
+	ProtectedQuantityUnits int64
+	Summary                string
+	InvalidationCondition  string
+	IncreaseCondition      string
+	ExpectedHoldingPeriod  string
+	CheckMetrics           []string
+}
+
+type ThesisSyncRow struct {
+	RowNumber int
+	Ticker    string
+	Thesis    ThesisInput
+}
+
+type ThesisSyncResult struct {
+	RowsSeen      int       `json:"rows_seen"`
+	RowsChanged   int       `json:"rows_changed"`
+	RowsUnchanged int       `json:"rows_unchanged"`
+	SyncedAt      time.Time `json:"synced_at"`
+}
+
 func (s *Store) UpsertPosition(
 	ctx context.Context,
 	ticker string,
@@ -74,40 +97,54 @@ func (s *Store) UpsertThesis(
 	expectedHoldingPeriod string,
 	checkMetrics []string,
 ) (models.Thesis, error) {
-	summary = strings.TrimSpace(summary)
-	if summary == "" {
-		return models.Thesis{}, fmt.Errorf("thesis summary is required")
-	}
+	return s.UpsertThesisDetails(ctx, ticker, ThesisInput{
+		Summary:               summary,
+		InvalidationCondition: invalidationCondition,
+		ExpectedHoldingPeriod: expectedHoldingPeriod,
+		CheckMetrics:          checkMetrics,
+	})
+}
 
-	instrument, err := s.Instrument(ctx, ticker)
+func (s *Store) UpsertThesisDetails(
+	ctx context.Context,
+	ticker string,
+	input ThesisInput,
+) (models.Thesis, error) {
+	input, metricsJSON, err := prepareThesisInput(input)
 	if err != nil {
 		return models.Thesis{}, err
 	}
-	metrics := normalizeMetrics(checkMetrics)
-	metricsJSON, err := json.Marshal(metrics)
+	instrument, err := s.Instrument(ctx, ticker)
 	if err != nil {
-		return models.Thesis{}, fmt.Errorf("encode thesis metrics: %w", err)
+		return models.Thesis{}, err
 	}
 	now := s.now().UTC()
 
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO theses(
-			instrument_id, summary, invalidation_condition, expected_holding_period,
+			instrument_id, allocation_category, protected_quantity_units, summary,
+			invalidation_condition, increase_condition, expected_holding_period,
 			check_metrics_json, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(instrument_id) DO UPDATE SET
+			allocation_category = excluded.allocation_category,
+			protected_quantity_units = excluded.protected_quantity_units,
 			summary = excluded.summary,
 			invalidation_condition = excluded.invalidation_condition,
+			increase_condition = excluded.increase_condition,
 			expected_holding_period = excluded.expected_holding_period,
 			check_metrics_json = excluded.check_metrics_json,
 			updated_at = excluded.updated_at
 	`,
 		instrument.ID,
-		summary,
-		strings.TrimSpace(invalidationCondition),
-		strings.TrimSpace(expectedHoldingPeriod),
-		string(metricsJSON),
+		input.AllocationCategory,
+		input.ProtectedQuantityUnits,
+		input.Summary,
+		input.InvalidationCondition,
+		input.IncreaseCondition,
+		input.ExpectedHoldingPeriod,
+		metricsJSON,
 		now.Format(timeFormat),
 		now.Format(timeFormat),
 	)
@@ -115,6 +152,128 @@ func (s *Store) UpsertThesis(
 		return models.Thesis{}, fmt.Errorf("upsert thesis %q: %w", ticker, err)
 	}
 	return s.thesis(ctx, instrument.ID)
+}
+
+func (s *Store) SyncTheses(
+	ctx context.Context,
+	rows []ThesisSyncRow,
+) (ThesisSyncResult, error) {
+	result := ThesisSyncResult{
+		RowsSeen: len(rows),
+		SyncedAt: s.now().UTC(),
+	}
+	type preparedRow struct {
+		row         ThesisSyncRow
+		metricsJSON string
+	}
+	prepared := make([]preparedRow, 0, len(rows))
+	seenTickers := make(map[string]struct{}, len(rows))
+	for index, row := range rows {
+		if row.RowNumber <= 0 {
+			row.RowNumber = index + 1
+		}
+		row.Ticker = strings.TrimSpace(row.Ticker)
+		key := strings.ToLower(row.Ticker)
+		if key == "" {
+			return result, fmt.Errorf("thesis row %d: ticker is required", row.RowNumber)
+		}
+		if _, exists := seenTickers[key]; exists {
+			return result, fmt.Errorf(
+				"thesis row %d: duplicate ticker %q",
+				row.RowNumber,
+				row.Ticker,
+			)
+		}
+		seenTickers[key] = struct{}{}
+		input, metricsJSON, err := prepareThesisInput(row.Thesis)
+		if err != nil {
+			return result, fmt.Errorf("thesis row %d: %w", row.RowNumber, err)
+		}
+		row.Thesis = input
+		prepared = append(prepared, preparedRow{
+			row:         row,
+			metricsJSON: metricsJSON,
+		})
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return result, fmt.Errorf("begin thesis sync: %w", err)
+	}
+	defer tx.Rollback()
+
+	now := result.SyncedAt.Format(timeFormat)
+	for _, item := range prepared {
+		instrumentID, err := instrumentIDByTicker(ctx, tx, item.row.Ticker)
+		if err != nil {
+			return result, fmt.Errorf(
+				"thesis row %d: %w",
+				item.row.RowNumber,
+				err,
+			)
+		}
+		input := item.row.Thesis
+		sqlResult, err := tx.ExecContext(ctx, `
+			INSERT INTO theses(
+				instrument_id, allocation_category, protected_quantity_units, summary,
+				invalidation_condition, increase_condition, expected_holding_period,
+				check_metrics_json, created_at, updated_at
+			)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(instrument_id) DO UPDATE SET
+				allocation_category = excluded.allocation_category,
+				protected_quantity_units = excluded.protected_quantity_units,
+				summary = excluded.summary,
+				invalidation_condition = excluded.invalidation_condition,
+				increase_condition = excluded.increase_condition,
+				expected_holding_period = excluded.expected_holding_period,
+				check_metrics_json = excluded.check_metrics_json,
+				updated_at = excluded.updated_at
+			WHERE theses.allocation_category <> excluded.allocation_category
+			   OR theses.protected_quantity_units <> excluded.protected_quantity_units
+			   OR theses.summary <> excluded.summary
+			   OR theses.invalidation_condition <> excluded.invalidation_condition
+			   OR theses.increase_condition <> excluded.increase_condition
+			   OR theses.expected_holding_period <> excluded.expected_holding_period
+			   OR theses.check_metrics_json <> excluded.check_metrics_json
+		`,
+			instrumentID,
+			input.AllocationCategory,
+			input.ProtectedQuantityUnits,
+			input.Summary,
+			input.InvalidationCondition,
+			input.IncreaseCondition,
+			input.ExpectedHoldingPeriod,
+			item.metricsJSON,
+			now,
+			now,
+		)
+		if err != nil {
+			return result, fmt.Errorf(
+				"upsert thesis row %d ticker %q: %w",
+				item.row.RowNumber,
+				item.row.Ticker,
+				err,
+			)
+		}
+		affected, err := sqlResult.RowsAffected()
+		if err != nil {
+			return result, fmt.Errorf(
+				"read thesis row %d result: %w",
+				item.row.RowNumber,
+				err,
+			)
+		}
+		if affected == 0 {
+			result.RowsUnchanged++
+		} else {
+			result.RowsChanged++
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return result, fmt.Errorf("commit thesis sync: %w", err)
+	}
+	return result, nil
 }
 
 func (s *Store) Portfolio(ctx context.Context, ticker string) (models.PortfolioRecord, error) {
@@ -209,14 +368,18 @@ func (s *Store) thesis(ctx context.Context, instrumentID int64) (models.Thesis, 
 	var createdAt string
 	var updatedAt string
 	err := s.db.QueryRowContext(ctx, `
-		SELECT instrument_id, summary, invalidation_condition, expected_holding_period,
+		SELECT instrument_id, allocation_category, protected_quantity_units, summary,
+			invalidation_condition, increase_condition, expected_holding_period,
 			check_metrics_json, created_at, updated_at
 		FROM theses
 		WHERE instrument_id = ?
 	`, instrumentID).Scan(
 		&thesis.InstrumentID,
+		&thesis.AllocationCategory,
+		&thesis.ProtectedQuantityUnits,
 		&thesis.Summary,
 		&thesis.InvalidationCondition,
+		&thesis.IncreaseCondition,
 		&thesis.ExpectedHoldingPeriod,
 		&metricsJSON,
 		&createdAt,
@@ -237,6 +400,30 @@ func (s *Store) thesis(ctx context.Context, instrumentID int64) (models.Thesis, 
 		return models.Thesis{}, fmt.Errorf("parse thesis updated_at: %w", err)
 	}
 	return thesis, nil
+}
+
+func prepareThesisInput(input ThesisInput) (ThesisInput, string, error) {
+	input.AllocationCategory = strings.ToLower(
+		strings.TrimSpace(input.AllocationCategory),
+	)
+	input.Summary = strings.TrimSpace(input.Summary)
+	input.InvalidationCondition = strings.TrimSpace(input.InvalidationCondition)
+	input.IncreaseCondition = strings.TrimSpace(input.IncreaseCondition)
+	input.ExpectedHoldingPeriod = strings.TrimSpace(input.ExpectedHoldingPeriod)
+	input.CheckMetrics = normalizeMetrics(input.CheckMetrics)
+	if input.Summary == "" {
+		return ThesisInput{}, "", fmt.Errorf("thesis summary is required")
+	}
+	if input.ProtectedQuantityUnits < 0 {
+		return ThesisInput{}, "", fmt.Errorf(
+			"thesis protected quantity must not be negative",
+		)
+	}
+	metricsJSON, err := json.Marshal(input.CheckMetrics)
+	if err != nil {
+		return ThesisInput{}, "", fmt.Errorf("encode thesis metrics: %w", err)
+	}
+	return input, string(metricsJSON), nil
 }
 
 func normalizeMetrics(metrics []string) []string {
