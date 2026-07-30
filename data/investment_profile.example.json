@@ -1,5 +1,5 @@
 {
-  "version": "investment-profile/v1",
+  "version": "investment-profile/v2",
   "portfolio_policy": {
     "objective": "감당 가능한 변동성 안에서 장기 성장",
     "target_annual_return_percent": {
@@ -37,6 +37,16 @@
         "guidance": "현금성 자산과 국채로 변동성과 대기자금을 관리한다."
       }
     ],
+    "rebalance_policy": {
+      "mode": "cash_flow_first",
+      "preferred_max_realized_loss_percent": 7,
+      "hard_max_realized_loss_percent": 10,
+      "realized_loss_limit_basis": "each_position_cost_basis",
+      "thesis_invalidation_overrides_limit": true,
+      "max_turnover_percent": 100,
+      "target_horizon_months": 3,
+      "force_target_allocation_by_deadline": false
+    },
     "review_rules": [
       "목표 배분은 분기마다 점검한다.",
       "보호 수량은 비중 축소 검토 대상에서 제외한다.",

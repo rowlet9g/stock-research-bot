@@ -10,7 +10,7 @@ import (
 
 func TestParseNormalizesValidProfile(t *testing.T) {
 	profile, err := Parse([]byte(`{
-		"version": "investment-profile/v1",
+		"version": "investment-profile/v2",
 		"portfolio_policy": {
 			"objective": " 위험을 낮춘 장기 성장 ",
 			"target_annual_return_percent": {
@@ -40,6 +40,16 @@ func TestParseNormalizesValidProfile(t *testing.T) {
 					"guidance": "변동성 완화"
 				}
 			],
+			"rebalance_policy": {
+				"mode": " CASH_FLOW_FIRST ",
+				"preferred_max_realized_loss_percent": 7,
+				"hard_max_realized_loss_percent": 10,
+				"realized_loss_limit_basis": " EACH_POSITION_COST_BASIS ",
+				"thesis_invalidation_overrides_limit": true,
+				"max_turnover_percent": 100,
+				"target_horizon_months": 3,
+				"force_target_allocation_by_deadline": false
+			},
 			"review_rules": ["분기 점검", "분기 점검"]
 		},
 		"theses": [
@@ -60,7 +70,11 @@ func TestParseNormalizesValidProfile(t *testing.T) {
 	}
 	if profile.PortfolioPolicy.Objective != "위험을 낮춘 장기 성장" ||
 		len(profile.PortfolioPolicy.ReviewRules) != 1 ||
-		len(profile.PortfolioPolicy.Allocations[0].Assets) != 2 {
+		len(profile.PortfolioPolicy.Allocations[0].Assets) != 2 ||
+		profile.PortfolioPolicy.RebalancePolicy.Mode !=
+			RebalanceModeCashFlowFirst ||
+		profile.PortfolioPolicy.RebalancePolicy.RealizedLossLimitBasis !=
+			RealizedLossBasisPosition {
 		t.Fatalf("policy was not normalized: %#v", profile.PortfolioPolicy)
 	}
 	thesis := profile.Theses[0]
@@ -73,7 +87,7 @@ func TestParseNormalizesValidProfile(t *testing.T) {
 }
 
 func TestParseRejectsUnknownField(t *testing.T) {
-	_, err := Parse([]byte(`{"version":"investment-profile/v1","unknown":true}`))
+	_, err := Parse([]byte(`{"version":"investment-profile/v2","unknown":true}`))
 	if err == nil || !strings.Contains(err.Error(), "unknown field") {
 		t.Fatalf("expected unknown field error, got %v", err)
 	}
@@ -100,13 +114,26 @@ func TestParseRejectsUnknownThesisCategory(t *testing.T) {
 	}
 }
 
+func TestParseRejectsInvalidRebalanceLossLimits(t *testing.T) {
+	content := strings.Replace(
+		minimalProfileJSON(100, "0", "core"),
+		`"preferred_max_realized_loss_percent": 7`,
+		`"preferred_max_realized_loss_percent": 11`,
+		1,
+	)
+	_, err := Parse([]byte(content))
+	if err == nil || !strings.Contains(err.Error(), "preferred <= hard") {
+		t.Fatalf("expected rebalance loss limit error, got %v", err)
+	}
+}
+
 func minimalProfileJSON(
 	targetPercent int,
 	protectedQuantity string,
 	thesisCategory string,
 ) string {
 	return `{
-		"version": "investment-profile/v1",
+		"version": "investment-profile/v2",
 		"portfolio_policy": {
 			"objective": "장기 성장",
 			"target_annual_return_percent": {
@@ -120,6 +147,16 @@ func minimalProfileJSON(
 				"assets": ["SPYM"],
 				"guidance": "적립"
 			}],
+			"rebalance_policy": {
+				"mode": "cash_flow_first",
+				"preferred_max_realized_loss_percent": 7,
+				"hard_max_realized_loss_percent": 10,
+				"realized_loss_limit_basis": "each_position_cost_basis",
+				"thesis_invalidation_overrides_limit": true,
+				"max_turnover_percent": 100,
+				"target_horizon_months": 3,
+				"force_target_allocation_by_deadline": false
+			},
 			"review_rules": []
 		},
 		"theses": [{

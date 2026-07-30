@@ -114,6 +114,74 @@ func TestParseAndValidateRejectsPartialSellWithoutUnprotectedQuantity(
 	}
 }
 
+func TestParseAndValidateRejectsSaleBeyondHardRealizedLossLimit(
+	t *testing.T,
+) {
+	_, err := ParseAndValidate(
+		[]byte(validReportJSON()),
+		ValidationInput{
+			ExpectedTickers: []string{"AAPL"},
+			QuantityUnits: map[string]int64{
+				"AAPL": 2 * decimal.Scale,
+			},
+			UnrealizedReturnBPS: map[string]int64{
+				"AAPL": -1500,
+			},
+			EnforceHardRealizedLossLimit:     true,
+			HardMaxRealizedLossBPS:           1000,
+			ThesisInvalidationOverridesLimit: true,
+		},
+	)
+	if err == nil || !strings.Contains(err.Error(), "beyond the 10.00% hard limit") {
+		t.Fatalf("expected hard realized loss limit error, got %v", err)
+	}
+}
+
+func TestParseAndValidateAllowsLossLimitOverrideForBrokenThesis(
+	t *testing.T,
+) {
+	content := strings.Replace(
+		validReportJSON(),
+		`"thesis_status": "mixed"`,
+		`"thesis_status": "broken"`,
+		1,
+	)
+	_, err := ParseAndValidate(
+		[]byte(content),
+		ValidationInput{
+			ExpectedTickers: []string{"AAPL"},
+			QuantityUnits: map[string]int64{
+				"AAPL": 2 * decimal.Scale,
+			},
+			UnrealizedReturnBPS: map[string]int64{
+				"AAPL": -1500,
+			},
+			EnforceHardRealizedLossLimit:     true,
+			HardMaxRealizedLossBPS:           1000,
+			ThesisInvalidationOverridesLimit: true,
+		},
+	)
+	if err != nil {
+		t.Fatalf("broken thesis override was rejected: %v", err)
+	}
+}
+
+func TestParseAndValidateRejectsSaleWhenLossCannotBeValidated(
+	t *testing.T,
+) {
+	_, err := ParseAndValidate(
+		[]byte(validReportJSON()),
+		ValidationInput{
+			ExpectedTickers:              []string{"AAPL"},
+			EnforceHardRealizedLossLimit: true,
+			HardMaxRealizedLossBPS:       1000,
+		},
+	)
+	if err == nil || !strings.Contains(err.Error(), "unrealized return is unavailable") {
+		t.Fatalf("expected unavailable return error, got %v", err)
+	}
+}
+
 func TestParseAndValidateRequiresPrimaryEvidence(t *testing.T) {
 	content := strings.ReplaceAll(
 		validReportJSON(),

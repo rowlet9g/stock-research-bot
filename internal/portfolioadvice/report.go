@@ -71,9 +71,13 @@ type Report struct {
 }
 
 type ValidationInput struct {
-	ExpectedTickers   []string
-	QuantityUnits     map[string]int64
-	ProtectedQuantity map[string]int64
+	ExpectedTickers                  []string
+	QuantityUnits                    map[string]int64
+	ProtectedQuantity                map[string]int64
+	UnrealizedReturnBPS              map[string]int64
+	EnforceHardRealizedLossLimit     bool
+	HardMaxRealizedLossBPS           int64
+	ThesisInvalidationOverridesLimit bool
 }
 
 func JSONSchema() []byte {
@@ -377,6 +381,13 @@ func validateReport(report Report, input ValidationInput) error {
 		if err := validateRequiredHoldingFields(holding); err != nil {
 			return fmt.Errorf("holding %s: %w", ticker, err)
 		}
+		if err := validateRealizedLossLimit(
+			ticker,
+			holding,
+			input,
+		); err != nil {
+			return fmt.Errorf("holding %s: %w", ticker, err)
+		}
 		if err := validateEvidence("holding "+ticker, holding.Evidence); err != nil {
 			return err
 		}
@@ -439,6 +450,41 @@ func validateReport(report Report, input ValidationInput) error {
 		}
 	}
 	return nil
+}
+
+func validateRealizedLossLimit(
+	ticker string,
+	holding HoldingRecommendation,
+	input ValidationInput,
+) error {
+	if !input.EnforceHardRealizedLossLimit ||
+		(holding.Action != HoldingActionPartialSell &&
+			holding.Action != HoldingActionFullExit) {
+		return nil
+	}
+	if input.HardMaxRealizedLossBPS <= 0 {
+		return fmt.Errorf("hard realized loss limit must be positive")
+	}
+	returnBPS, exists := input.UnrealizedReturnBPS[ticker]
+	if !exists {
+		return fmt.Errorf(
+			"cannot validate %s because unrealized return is unavailable",
+			holding.Action,
+		)
+	}
+	if returnBPS >= -input.HardMaxRealizedLossBPS {
+		return nil
+	}
+	if input.ThesisInvalidationOverridesLimit &&
+		holding.ThesisStatus == "broken" {
+		return nil
+	}
+	return fmt.Errorf(
+		"%s would realize an estimated %.2f%% loss, beyond the %.2f%% hard limit without a broken thesis",
+		holding.Action,
+		float64(-returnBPS)/100,
+		float64(input.HardMaxRealizedLossBPS)/100,
+	)
 }
 
 func validateAsOf(value string) error {

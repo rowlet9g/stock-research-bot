@@ -13,8 +13,11 @@ import (
 )
 
 const (
-	Version      = "investment-profile/v1"
+	Version      = "investment-profile/v2"
 	maxFileBytes = 1024 * 1024
+
+	RebalanceModeCashFlowFirst = "cash_flow_first"
+	RealizedLossBasisPosition  = "each_position_cost_basis"
 )
 
 type ReturnTarget struct {
@@ -30,12 +33,24 @@ type Allocation struct {
 	Guidance      string   `json:"guidance"`
 }
 
+type RebalancePolicy struct {
+	Mode                             string `json:"mode"`
+	PreferredMaxRealizedLossPercent  int    `json:"preferred_max_realized_loss_percent"`
+	HardMaxRealizedLossPercent       int    `json:"hard_max_realized_loss_percent"`
+	RealizedLossLimitBasis           string `json:"realized_loss_limit_basis"`
+	ThesisInvalidationOverridesLimit bool   `json:"thesis_invalidation_overrides_limit"`
+	MaxTurnoverPercent               int    `json:"max_turnover_percent"`
+	TargetHorizonMonths              int    `json:"target_horizon_months"`
+	ForceTargetAllocationByDeadline  bool   `json:"force_target_allocation_by_deadline"`
+}
+
 type Policy struct {
-	Objective                 string       `json:"objective"`
-	TargetAnnualReturnPercent ReturnTarget `json:"target_annual_return_percent"`
-	Allocations               []Allocation `json:"allocations"`
-	ReviewRules               []string     `json:"review_rules"`
-	ResearchPreferences       []string     `json:"research_preferences"`
+	Objective                 string          `json:"objective"`
+	TargetAnnualReturnPercent ReturnTarget    `json:"target_annual_return_percent"`
+	Allocations               []Allocation    `json:"allocations"`
+	RebalancePolicy           RebalancePolicy `json:"rebalance_policy"`
+	ReviewRules               []string        `json:"review_rules"`
+	ResearchPreferences       []string        `json:"research_preferences"`
 }
 
 type Thesis struct {
@@ -245,11 +260,60 @@ func normalizeAndValidatePolicy(policy *Policy) error {
 			totalPercent,
 		)
 	}
+	if err := normalizeAndValidateRebalancePolicy(
+		&policy.RebalancePolicy,
+	); err != nil {
+		return err
+	}
 	policy.ReviewRules = normalizeStrings(policy.ReviewRules, false)
 	policy.ResearchPreferences = normalizeStrings(
 		policy.ResearchPreferences,
 		false,
 	)
+	return nil
+}
+
+func normalizeAndValidateRebalancePolicy(
+	policy *RebalancePolicy,
+) error {
+	policy.Mode = strings.ToLower(strings.TrimSpace(policy.Mode))
+	policy.RealizedLossLimitBasis = strings.ToLower(
+		strings.TrimSpace(policy.RealizedLossLimitBasis),
+	)
+	if policy.Mode != RebalanceModeCashFlowFirst {
+		return fmt.Errorf(
+			"rebalance policy mode must be %q, got %q",
+			RebalanceModeCashFlowFirst,
+			policy.Mode,
+		)
+	}
+	if policy.PreferredMaxRealizedLossPercent <= 0 ||
+		policy.HardMaxRealizedLossPercent <
+			policy.PreferredMaxRealizedLossPercent ||
+		policy.HardMaxRealizedLossPercent > 100 {
+		return fmt.Errorf(
+			"rebalance realized loss percent must satisfy 0 < preferred <= hard <= 100",
+		)
+	}
+	if policy.RealizedLossLimitBasis != RealizedLossBasisPosition {
+		return fmt.Errorf(
+			"rebalance realized loss limit basis must be %q, got %q",
+			RealizedLossBasisPosition,
+			policy.RealizedLossLimitBasis,
+		)
+	}
+	if policy.MaxTurnoverPercent <= 0 ||
+		policy.MaxTurnoverPercent > 100 {
+		return fmt.Errorf(
+			"rebalance max turnover percent must be between 1 and 100",
+		)
+	}
+	if policy.TargetHorizonMonths <= 0 ||
+		policy.TargetHorizonMonths > 24 {
+		return fmt.Errorf(
+			"rebalance target horizon months must be between 1 and 24",
+		)
+	}
 	return nil
 }
 

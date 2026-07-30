@@ -98,6 +98,10 @@ func BuildPortfolioResearchBrief(
 	fmt.Fprintln(&builder, "- 가격 타이밍 결과와 기업가치 판단을 분리하고, 전자는 현재 가격·평단·추세 수치로 직접 평가한다.")
 	fmt.Fprintln(&builder, "- 신규 편입 후보는 최신 가격·재무·상품·섹터 자료를 조사한 뒤 구체적인 종목명과 편입안을 제시한다.")
 	fmt.Fprintln(&builder, "- 투자 프로필의 목표 배분은 의사결정 기준이며 기대수익률은 보장값이 아니다.")
+	fmt.Fprintln(&builder, "- cash_flow_first 정책에서는 기존 보유자산 매도보다 신규 자금을 부족 자산군에 배정하는 안을 먼저 제시한다.")
+	fmt.Fprintln(&builder, "- 리밸런싱 목적 매도가 종목별 최대 실현손실 한도를 넘으면 가설 훼손 예외가 아닌 한 매도를 권하지 않는다.")
+	fmt.Fprintln(&builder, "- 목표기간 안에 목표 배분을 강제하지 않는 정책이면 손실 한도를 깨면서 비중을 정확히 맞추지 않는다.")
+	fmt.Fprintln(&builder, "- 최대 회전율은 허용 상한이지 그만큼 매도해야 한다는 목표가 아니다.")
 	fmt.Fprintln(&builder, "- 보호 수량 이하를 비중 축소 대상으로 제시하지 않고 초과 수량만 조정 후보로 다룬다.")
 	fmt.Fprintln(&builder, "- 증액 조건은 현재 공개된 실적·공시·산업 자료로 직접 충족 여부를 조사한다.")
 	fmt.Fprintln(&builder, "- 평단을 낮추는 매수는 실적, 밸류에이션, 추세, 집중도와 기회비용을 근거로 타당성을 설명한다.")
@@ -182,6 +186,26 @@ func writePortfolioBriefPolicy(
 			valueOrNA(sanitizePromptData(allocation.Guidance)),
 		)
 	}
+	rebalance := policy.RebalancePolicy
+	fmt.Fprintf(
+		builder,
+		"- 리밸런싱 방식: mode=%s; 기존 자산 매도보다 신규 자금 배정을 우선\n",
+		sanitizePromptData(rebalance.Mode),
+	)
+	fmt.Fprintf(
+		builder,
+		"- 리밸런싱 손실 한도: 종목별 취득원가 기준 선호=%d%% 이내, 최대=%d%%; 가설훼손예외=%t\n",
+		rebalance.PreferredMaxRealizedLossPercent,
+		rebalance.HardMaxRealizedLossPercent,
+		rebalance.ThesisInvalidationOverridesLimit,
+	)
+	fmt.Fprintf(
+		builder,
+		"- 리밸런싱 실행 범위: 최대회전율=%d%%, 목표기간=%d개월, 기한내목표강제=%t\n",
+		rebalance.MaxTurnoverPercent,
+		rebalance.TargetHorizonMonths,
+		rebalance.ForceTargetAllocationByDeadline,
+	)
 	for _, rule := range policy.ReviewRules {
 		fmt.Fprintf(
 			builder,

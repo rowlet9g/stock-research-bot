@@ -13,6 +13,7 @@ import (
 	"github.com/rowlet9g/stock-research-bot/internal/codexcli"
 	"github.com/rowlet9g/stock-research-bot/internal/config"
 	"github.com/rowlet9g/stock-research-bot/internal/emaildelivery"
+	"github.com/rowlet9g/stock-research-bot/internal/investmentprofile"
 	"github.com/rowlet9g/stock-research-bot/internal/portfolioadvice"
 	"github.com/rowlet9g/stock-research-bot/internal/reporting"
 	sqlitestore "github.com/rowlet9g/stock-research-bot/internal/storage/sqlite"
@@ -355,7 +356,7 @@ func runPortfolioCodexEmail(
 	}
 	advice, err := portfolioadvice.ParseAndValidate(
 		[]byte(response),
-		portfolioAdviceValidationInput(briefResult),
+		portfolioAdviceValidationInput(briefResult, profile),
 	)
 	if err != nil {
 		return writeRuntimeFailure(
@@ -517,10 +518,20 @@ func portfolioEmailLocation(
 
 func portfolioAdviceValidationInput(
 	result portfolioBriefCommandResult,
+	profile *investmentprofile.Profile,
 ) portfolioadvice.ValidationInput {
 	input := portfolioadvice.ValidationInput{
-		QuantityUnits:     make(map[string]int64),
-		ProtectedQuantity: make(map[string]int64),
+		QuantityUnits:       make(map[string]int64),
+		ProtectedQuantity:   make(map[string]int64),
+		UnrealizedReturnBPS: make(map[string]int64),
+	}
+	if profile != nil {
+		rebalance := profile.PortfolioPolicy.RebalancePolicy
+		input.EnforceHardRealizedLossLimit = true
+		input.HardMaxRealizedLossBPS =
+			int64(rebalance.HardMaxRealizedLossPercent) * 100
+		input.ThesisInvalidationOverridesLimit =
+			rebalance.ThesisInvalidationOverridesLimit
 	}
 	for _, position := range result.Valuation.Positions {
 		if position.QuantityUnits == nil || *position.QuantityUnits == 0 {
@@ -534,6 +545,10 @@ func portfolioAdviceValidationInput(
 		}
 		input.ExpectedTickers = append(input.ExpectedTickers, ticker)
 		input.QuantityUnits[ticker] = *position.QuantityUnits
+		if position.UnrealizedReturnBPS != nil {
+			input.UnrealizedReturnBPS[ticker] =
+				*position.UnrealizedReturnBPS
+		}
 		if position.Thesis != nil {
 			input.ProtectedQuantity[ticker] =
 				position.Thesis.ProtectedQuantityUnits
@@ -574,6 +589,10 @@ func buildPortfolioCodexAnalysisPrompt(
 - 물타기는 평단 하락 자체가 아니라 실적·밸류에이션·추세·집중도·기회비용을 함께 비교해 타당성 여부를 직접 결론내.
 - 가격 손실만으로 매도하지 말고, 손실이 커서 팔기 어렵다는 이유만으로 보유하지도 마.
 - 투자 프로필의 목표 배분, 위험 성향, 보호 수량과 현재 집중도를 모두 반영해.
+- cash_flow_first이면 기존 종목 매도보다 신규 추가 자금으로 부족 자산군을 채우는 안을 우선해.
+- 리밸런싱 목적 매도가 종목별 최대 실현손실 한도를 넘으면 가설 훼손 예외가 아닌 한 hold를 선택해.
+- 기한 내 목표 배분 강제가 false이면 손실 한도를 깨거나 매도 수량을 억지로 늘려 목표 비중을 정확히 맞추지 마.
+- 최대 회전율은 매도 허용 상한이지 목표 매도량이 아니야.
 - high 종목은 제공된 40% 기준 재배분액을 1차 조정안과 비교해.
 
 신규 후보:

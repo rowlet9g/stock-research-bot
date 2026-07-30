@@ -83,7 +83,7 @@ func TestInvestmentProfileSyncIsIdempotent(t *testing.T) {
 
 func testInvestmentProfileJSON() string {
 	return `{
-		"version": "investment-profile/v1",
+		"version": "investment-profile/v2",
 		"portfolio_policy": {
 			"objective": "위험을 낮춘 장기 성장",
 			"target_annual_return_percent": {
@@ -113,6 +113,16 @@ func testInvestmentProfileJSON() string {
 					"guidance": "변동성 완화"
 				}
 			],
+			"rebalance_policy": {
+				"mode": "cash_flow_first",
+				"preferred_max_realized_loss_percent": 7,
+				"hard_max_realized_loss_percent": 10,
+				"realized_loss_limit_basis": "each_position_cost_basis",
+				"thesis_invalidation_overrides_limit": true,
+				"max_turnover_percent": 100,
+				"target_horizon_months": 3,
+				"force_target_allocation_by_deadline": false
+			},
 			"review_rules": ["분기 점검"]
 		},
 		"theses": [

@@ -10,9 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rowlet9g/stock-research-bot/internal/analysis"
 	"github.com/rowlet9g/stock-research-bot/internal/codexcli"
 	"github.com/rowlet9g/stock-research-bot/internal/decimal"
 	"github.com/rowlet9g/stock-research-bot/internal/emaildelivery"
+	"github.com/rowlet9g/stock-research-bot/internal/investmentprofile"
 	"github.com/rowlet9g/stock-research-bot/internal/models"
 	"github.com/rowlet9g/stock-research-bot/internal/reporting"
 	sqlitestore "github.com/rowlet9g/stock-research-bot/internal/storage/sqlite"
@@ -96,6 +98,10 @@ func TestPortfolioCodexEmailBuildsAndStoresAnalysisPreview(
 		!strings.Contains(fake.Prompt, "40% 기준 재배분액") ||
 		!strings.Contains(fake.Prompt, "보호 수량이 있는 종목") ||
 		!strings.Contains(fake.Prompt, "목표 배분: category=core") ||
+		!strings.Contains(fake.Prompt, "mode=cash_flow_first") ||
+		!strings.Contains(fake.Prompt, "선호=7% 이내, 최대=10%") ||
+		!strings.Contains(fake.Prompt, "기한내목표강제=false") ||
+		!strings.Contains(fake.Prompt, "최대 실현손실 한도") ||
 		!strings.Contains(fake.Prompt, "증액조건=실적 확인 후 증액") ||
 		!strings.Contains(fake.Prompt, "research_conclusions") ||
 		!strings.Contains(fake.Prompt, "포트폴리오의 핵심 위험") ||
@@ -217,6 +223,42 @@ func TestPortfolioCodexEmailRejectsPromptEcho(t *testing.T) {
 		portfolioPrompt,
 	); err == nil || !strings.Contains(err.Error(), "input prompt") {
 		t.Fatalf("Codex prompt echo was accepted: %v", err)
+	}
+}
+
+func TestPortfolioAdviceValidationInputIncludesRebalanceLossPolicy(
+	t *testing.T,
+) {
+	quantity := 2 * decimal.Scale
+	unrealizedReturnBPS := int64(-1500)
+	input := portfolioAdviceValidationInput(
+		portfolioBriefCommandResult{
+			Valuation: analysis.PortfolioValuationReport{
+				Positions: []analysis.PositionValuation{
+					{
+						Instrument: models.Instrument{
+							Ticker: "aapl",
+						},
+						QuantityUnits:       &quantity,
+						UnrealizedReturnBPS: &unrealizedReturnBPS,
+					},
+				},
+			},
+		},
+		&investmentprofile.Profile{
+			PortfolioPolicy: investmentprofile.Policy{
+				RebalancePolicy: investmentprofile.RebalancePolicy{
+					HardMaxRealizedLossPercent:       10,
+					ThesisInvalidationOverridesLimit: true,
+				},
+			},
+		},
+	)
+	if !input.EnforceHardRealizedLossLimit ||
+		input.HardMaxRealizedLossBPS != 1000 ||
+		!input.ThesisInvalidationOverridesLimit ||
+		input.UnrealizedReturnBPS["AAPL"] != -1500 {
+		t.Fatalf("unexpected portfolio advice validation input: %#v", input)
 	}
 }
 
