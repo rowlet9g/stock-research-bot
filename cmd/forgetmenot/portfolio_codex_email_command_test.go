@@ -80,6 +80,10 @@ func TestPortfolioCodexEmailBuildsAndStoresAnalysisPreview(
 	}
 	if fake.Calls != 1 ||
 		!strings.Contains(fake.Prompt, "셸 명령, 파일 읽기·쓰기") ||
+		!strings.Contains(fake.Prompt, "결론 전체를 유보하지 말고") ||
+		!strings.Contains(fake.Prompt, "40% 기준 재배분액") ||
+		!strings.Contains(fake.Prompt, "Markdown 제목") ||
+		!strings.Contains(fake.Prompt, "USD는 소수점 둘째 자리") ||
 		!strings.Contains(fake.Prompt, "포트폴리오의 핵심 위험") ||
 		!strings.Contains(fake.Prompt, "평가금액=400") ||
 		analyzerConfig.ReasoningEffort != "low" ||
@@ -91,7 +95,8 @@ func TestPortfolioCodexEmailBuildsAndStoresAnalysisPreview(
 		result.Delivery.Requested ||
 		result.Delivery.Sent ||
 		strings.TrimSpace(string(storedResponse)) != fake.Response ||
-		!strings.Contains(result.Body, "Codex CLI가 생성한 응답") {
+		!strings.Contains(result.Body, "즉시 행동안") ||
+		strings.Contains(result.Body, "SHA-256") {
 		t.Fatalf(
 			"unexpected portfolio Codex preview: result=%#v fake=%#v config=%#v",
 			result,
@@ -304,28 +309,25 @@ func portfolioCodexTestPrice(
 
 func portfolioCodexTestResponse() string {
 	return strings.TrimSpace(
-		`# 1. 핵심 결론
+		`1. 핵심 결론
 
 현재 포트폴리오는 단일 종목 비중이 높아 가격 변동의 영향을 크게 받는다.
+추가 매수는 보류하고 40% 집중도 기준까지 비중을 낮추는 안을 먼저 검토하는 편이 합리적이다.
 
-# 2. 현재 상태
+2. 즉시 행동안
 
-평가금액과 취득원가를 기준으로 손익을 검토하되, 제공되지 않은 기업가치 정보는 추정하지 않는다.
+고집중 종목은 제공된 재배분 참고액을 기준으로 두세 차례에 나누어 조정하는 안을 우선한다.
 
-# 3. 보유 전략 검토
+3. 활성 종목 판단
 
-보유 가설과 무효화 조건이 없으므로 유지나 축소를 확정할 근거가 부족하다.
+Apple: 가격 타이밍 결과는 유리하지만 집중도가 높으므로 추가 매수는 보류하고 비중 축소를 검토한다.
 
-# 4. 재조정 검토
+4. 추가 매수와 신규 편입
 
-집중도를 낮추는 시나리오는 위험 민감도 비교용이며 즉시 매도 지시가 아니다.
+기존 고집중 종목의 추가 매수는 보류하는 편이 합리적이다.
 
-# 5. 반론과 위험
+5. 다음 확인사항
 
-과거 가격과 평균단가만으로 미래 수익률이나 적정가치를 확정할 수 없다.
-
-# 6. 확인할 조건
-
-실적, 공시, 산업 지표와 투자 가설을 함께 갱신한 뒤 판단해야 한다.`,
+실적, 공시, 산업 지표와 투자 가설을 갱신하면 조정 강도를 다시 판단할 수 있다.`,
 	)
 }

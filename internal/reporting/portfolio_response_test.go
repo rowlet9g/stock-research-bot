@@ -15,7 +15,8 @@ func TestBuildPortfolioResponseReportPreservesProvenance(t *testing.T) {
 	inputHash := strings.Repeat("a", 64)
 	outputHash := strings.Repeat("d", 64)
 	promptHash := strings.Repeat("b", 64)
-	responseBody := "# 핵심 요약\r\n\r\n유지 가설을 확인한다.\r\n\r\n" +
+	responseBody := "# 핵심 요약\r\n\r\n**비중 축소 검토**가 필요하다.\r\n\r\n" +
+		"| 종목 | 조치 |\r\n| --- | --- |\r\n| `AAPL` | 유지 |\r\n\r\n" +
 		strings.Repeat(
 			"포트폴리오 집중도와 투자 가설을 사실, 해석, 반론으로 구분해 검토한다. ",
 			8,
@@ -36,7 +37,8 @@ func TestBuildPortfolioResponseReportPreservesProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build portfolio response report: %v", err)
 	}
-	expectedResponse := "# 핵심 요약\n\n유지 가설을 확인한다.\n\n" +
+	expectedResponse := "# 핵심 요약\n\n**비중 축소 검토**가 필요하다.\n\n" +
+		"| 종목 | 조치 |\n| --- | --- |\n| `AAPL` | 유지 |\n\n" +
 		strings.TrimSpace(strings.Repeat(
 			"포트폴리오 집중도와 투자 가설을 사실, 해석, 반론으로 구분해 검토한다. ",
 			8,
@@ -57,17 +59,37 @@ func TestBuildPortfolioResponseReportPreservesProvenance(t *testing.T) {
 		t.Fatalf("render portfolio response report: %v", err)
 	}
 	for _, expected := range []string{
-		"ForgetMeNot 포트폴리오 상세 분석",
-		"원본 분석 실행 ID: 7",
-		"분석 payload SHA-256: " + outputHash,
-		"프롬프트 SHA-256: " + promptHash,
-		"응답 SHA-256: " + report.ResponseSHA256,
-		"모델, 대화 ID, 사실 정확성을 독립적으로 검증하지 않았습니다",
-		expectedResponse,
+		"ForgetMeNot 포트폴리오 분석",
+		"보고서 날짜: 2026-07-30",
+		"기준 시간대: Asia/Seoul",
+		"핵심 요약",
+		"비중 축소 검토가 필요하다.",
+		"종목 / 조치",
+		"AAPL / 유지",
 		"자동 매수·매도 지시가 아닙니다",
 	} {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("response report body missing %q:\n%s", expected, body)
+		}
+	}
+	for _, forbidden := range []string{
+		"생성시각:",
+		"원본 분석 실행 ID:",
+		"SHA-256:",
+		"응답 생성/반입 방식:",
+		"주의:",
+		"상세 분석",
+		"#",
+		"**",
+		"`",
+		"|",
+	} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf(
+				"response report body contains %q:\n%s",
+				forbidden,
+				body,
+			)
 		}
 	}
 	if subject := report.Subject(""); subject !=

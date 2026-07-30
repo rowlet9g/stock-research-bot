@@ -171,7 +171,9 @@ JSON 출력에서는 원본 평가·시나리오와 프롬프트 해시를 함�
 
 `portfolio-codex-email`은 포트폴리오 브리핑 생성과 저장, ChatGPT 로그인 상태
 검증, Codex 분석, 응답 파일 저장과 메일 미리보기를 한 명령으로 수행합니다.
-`-send`를 지정한 경우에만 SMTP로 전송합니다. 자세한 자동 실행과 예비 절차는
+`-send`를 지정한 경우에만 SMTP로 전송합니다. 메일은 내부 해시를 생략하고
+Markdown을 제거한 5개 절의 행동 중심 일반 텍스트로 출력합니다. 자세한 자동
+실행과 예비 절차는
 [`docs/PORTFOLIO_RESPONSE_EMAIL.md`](docs/PORTFOLIO_RESPONSE_EMAIL.md)에
 정리했습니다.
 
