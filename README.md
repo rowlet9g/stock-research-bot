@@ -4,13 +4,13 @@ ForgetMeNot is a personal stock research and portfolio review bot that combines
 market prices, disclosures, financial statements, investment theses, and live
 web research.
 
-현재 주 구현체는 Go CLI다. Yahoo Finance, OpenDART, KRX, 미래에셋 거래내역과
+현재 주 구현체는 Go CLI로, Yahoo Finance, OpenDART, KRX, 미래에셋 거래내역과
 사용자가 확인한 현재 포지션을 SQLite에 저장하고, 계산 가능한 지표는 Go에서
-결정론적으로 계산한다. ChatGPT 계정으로 인증된 Codex CLI는 최신 공개자료 조사와
-해석을 담당하며, 결과를 일반 텍스트 이메일로 보낼 수 있다.
+결정론적으로 계산합니다. ChatGPT 계정으로 인증된 Codex CLI는 최신 공개자료 조사와
+해석을 담당하며, 결과를 일반 텍스트 이메일로 보낼 수 있습니다..
 
-이 프로젝트는 개인용 투자 리서치 도구다. 자동 주문이나 수익 보장형 추천은
-구현하지 않는다.
+이 프로젝트는 개인용 투자 리서치 도구이며 자동 주문이나 수익 보장형 추천은
+구현하지 않습니다.
 
 ## 핵심 기능
 
@@ -40,9 +40,9 @@ web research.
   -> 사용자가 `-send`를 지정한 경우에만 이메일 전송
 ```
 
-Go가 가격, 손익, 비중, 시나리오와 임계값을 계산한다. Codex는 공식 공시, 회사 IR,
+Go가 가격, 손익, 비중, 시나리오와 임계값을 계산하고, Codex는 공식 공시, 회사 IR,
 SEC, ETF 운용사와 공식 거시자료를 우선 조사해 사실, 해석, 반론과 행동 의견을
-작성한다. AI를 계산기나 원장으로 사용하지 않는다.
+작성합니다.
 
 ## 빠른 시작
 
@@ -60,8 +60,8 @@ Copy-Item .env.example .env
 go run ./cmd/forgetmenot db-init
 ```
 
-`.env`에는 필요한 키와 SMTP 정보만 로컬에서 입력한다. `.env`, 실제 DB, 실제
-포지션과 거래 CSV, 원본 공시 및 생성 보고서는 Git에서 제외된다.
+`.env`에는 필요한 키와 SMTP 정보만 로컬에서 입력합니다. `.env`, 실제 DB, 실제
+포지션과 거래 CSV, 원본 공시 및 생성 보고서는 Git에서 제외됩니다.
 
 ### 2. 기본 데이터 저장
 
@@ -71,7 +71,7 @@ go run ./cmd/forgetmenot positions-import -file data/positions.csv
 go run ./cmd/forgetmenot investment-profile-sync
 ```
 
-미래에셋 원본 거래내역을 가져올 때는 다음 명령을 사용한다.
+미래에셋 원본 거래내역을 가져올 때는 다음 명령을 사용합니다.
 
 ```powershell
 go run ./cmd/forgetmenot mirae-import -file "C:\path\거래내역.xlsx"
@@ -87,8 +87,8 @@ go run ./cmd/forgetmenot dart-document-sync -ticker 005930 -limit 10
 go run ./cmd/forgetmenot dart-financial-sync -ticker 005930 -year 2025 -report-code 11011 -fs-div CFS
 ```
 
-KRX Open API는 실시간 시세 API가 아니다. 종목 식별과 분류에는 KRX를 사용하고,
-현재 가격과 가격 이력은 Yahoo Finance에서 가져온다.
+KRX Open API는 실시간 시세 API가 아닙니다. 종목 식별과 분류에는 KRX를 사용하고,
+현재 가격과 가격 이력은 Yahoo Finance에서 가져옵니다.
 
 ### 4. 포트폴리오 확인
 
@@ -98,8 +98,8 @@ go run ./cmd/forgetmenot portfolio-scenarios -output text
 go run ./cmd/forgetmenot portfolio-brief -output text
 ```
 
-포트폴리오는 KRW와 USD를 검증된 환율 없이 임의 합산하지 않는다. 집중도와 목표
-배분도 기본적으로 각 통화의 총노출 안에서 해석한다.
+포트폴리오는 KRW와 USD를 검증된 환율 없이 임의 합산하지 않습니다. 집중도와 목표
+배분도 기본적으로 각 통화의 총 노출 안에서 해석합니다.
 
 ### 5. Codex 분석과 이메일
 
@@ -109,23 +109,23 @@ codex login status
 go run ./cmd/forgetmenot portfolio-codex-email
 ```
 
-기본 실행은 최신 가격과 웹 리서치를 사용해 보고서를 만들고 미리보기만 한다.
-내용을 확인한 뒤 실제 이메일을 보낼 때만 `-send`를 붙인다.
+기본 실행은 최신 가격과 웹 리서치를 사용해 보고서를 만들고 미리보기만 수행합니다.
+내용을 확인한 뒤 실제 이메일을 보낼 때만 `-send`를 붙입니다.
 
 ```powershell
 go run ./cmd/forgetmenot portfolio-codex-email -send
 ```
 
-이 경로는 OpenAI Platform API를 직접 호출하지 않는다. 자식 Codex 프로세스에는
+이 경로는 OpenAI Platform API를 직접 호출하지 않습니다. 자식 Codex 프로세스에는
 `OPENAI_API_KEY`와 `CODEX_API_KEY`를 전달하지 않고, 로그인한 ChatGPT 플랜의
-Codex 사용량 한도를 사용한다.
+Codex 사용량 한도를 사용합니다.
 
 ## 투자 프로필과 리밸런싱
 
-실제 정책은 Git에서 제외되는 `data/investment_profile.json`에 저장한다. 공개 형식은
-`data/investment_profile.example.json`을 참고한다.
+실제 정책은 Git에서 제외되는 `data/investment_profile.json`에 저장합니다. 공개 형식은
+`data/investment_profile.example.json`을 참고합니다.
 
-현재 프로필 v2는 다음을 표현할 수 있다.
+현재 프로필 v2는 다음을 표현할 수 있습니다.
 
 - 코어, 성장, 방어 자산의 목표 비중
 - 종목별 매수 가설, 무효화 조건, 증액 조건과 확인 지표
@@ -136,18 +136,18 @@ Codex 사용량 한도를 사용한다.
 - 최대 회전율, 목표 접근 기간과 기한 내 강제 조정 여부
 
 가설이 유지되는 종목의 매도 권고가 프로필의 최대 실현손실 한도를 넘으면 분석
-응답을 거부하고 이메일도 보내지 않는다. 이 한도는 자동 손절선이 아니라,
-리밸런싱만을 이유로 큰 손실을 확정하는 것을 막는 검증 규칙이다.
+응답을 거부하고 이메일도 보내지 않습니다. 이 한도는 자동 손절선이 아니라,
+리밸런싱만을 이유로 큰 손실을 확정하는 것을 막는 검증 규칙입니다.
 
 ## 데이터와 보안 원칙
 
-- 증권사 로그인 화면, 인증서와 비밀번호를 자동화하거나 스크래핑하지 않는다.
-- API 키, SMTP 비밀번호, 계좌 원본과 실제 포트폴리오는 커밋하지 않는다.
-- 외부 데이터에는 공급자, 출처 URL, 관측시각과 수집시각을 기록한다.
-- 공급자 일부 실패를 정상값으로 바꾸지 않고 `partial`, `unavailable` 등으로 남긴다.
-- 금액과 수량은 필요한 정밀도를 보존하고 중요한 재무 금액은 `float64`로 만들지 않는다.
-- 같은 입력의 반복 import와 동기화는 중복 데이터를 만들지 않아야 한다.
-- 이메일 전송은 항상 명시적인 `-send`가 있을 때만 수행한다.
+- 증권사 로그인 화면, 인증서와 비밀번호를 자동화하거나 스크래핑하지 않습니다.
+- API 키, SMTP 비밀번호, 계좌 원본과 실제 포트폴리오는 커밋하지 않습니다.
+- 외부 데이터에는 공급자, 출처 URL, 관측시각과 수집시각을 기록합니다.
+- 공급자 일부 실패를 정상값으로 바꾸지 않고 `partial`, `unavailable` 등으로 남깁니다.
+- 금액과 수량은 필요한 정밀도를 보존하고 중요한 재무 금액은 `float64`로 만들지 않습니다.
+- 같은 입력의 반복 import와 동기화는 중복 데이터를 만들지 않아야 합니다.
+- 이메일 전송은 항상 명시적인 `-send`가 있을 때만 수행합니다.
 
 ## 비목표와 현재 한계
 
@@ -160,9 +160,9 @@ Codex 사용량 한도를 사용한다.
 
 ## 프로젝트 문서
 
-`docs/`의 파일들은 임시 메모가 아니라 기능별 계약과 운영 절차다. README에는
+`docs/`의 파일들은 임시 메모가 아니라 기능별 계약과 운영 절차입니다. README에는
 처음 실행할 때 필요한 핵심만 두고, 계산식, 데이터 형식, 실패 처리와 보안 규칙은
-아래 문서를 단일 기준으로 사용한다.
+아래 문서를 단일 기준으로 사용합니다.
 
 | 문서 | 역할 |
 | --- | --- |
@@ -179,7 +179,7 @@ Codex 사용량 한도를 사용한다.
 | [PORTFOLIO_RESPONSE_EMAIL](docs/PORTFOLIO_RESPONSE_EMAIL.md) | Codex 인증, 웹 리서치, 응답 검증과 이메일 흐름 |
 
 개발자를 위한 Go 패키지 구조와 전체 CLI 명령군은 [README_GO.md](README_GO.md),
-저장소 작업·보안·검증 규칙은 [AGENTS.md](AGENTS.md)를 참고한다.
+저장소 작업·보안·검증 규칙은 [AGENTS.md](AGENTS.md)를 참고합니다.
 
 ## 검증
 
@@ -193,10 +193,10 @@ git diff --check
 ```
 
 Yahoo, OpenDART와 KRX 파서 단위 테스트는 저장된 fixture를 사용하며 실제 네트워크를
-호출하지 않는다.
+호출하지 않습니다.
 
 ## Python 레거시
 
-`app.py`, `src/stock_research_bot`, `tests`는 초기 Python/Streamlit 프로토타입이다.
+`app.py`, `src/stock_research_bot`, `tests`는 초기 Python/Streamlit 프로토타입입니다.
 Go 포팅 결과를 비교하는 기준 구현으로 남겨 두었으며, 별도 결정이 없으면 신규
-기능은 Go에만 추가한다.
+기능은 Go에만 추가합니다.
